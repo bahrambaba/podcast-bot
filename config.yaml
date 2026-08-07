@@ -1,29 +1,92 @@
-# Podcast Bot Configuration
+# Koohnameh Podcast Bot Configuration
 
-# RSS Feed URLs
-feeds:
-  - https://www.aanma.org/feed/
-  - https://www.annallergy.org/current.rss
-  - https://www.sciencedaily.com/rss/health_medicine/asthma.xml
-  - https://www.dovepress.com/feed.php?journal_id=27
-  - https://asthmamomlife.blogspot.com/feeds/posts/default
-  - https://www.resmedjournal.com/current.rss
-  - https://asthma.ca/feed/
+# Koohnameh channel username (source of channel list)
+koohnameh_username: koohnameh
 
-# Content settings
-max_per_feed: 5
-max_content_length: 10000
+# Known Telegram channels for mountaineering
+channels:
+  - username: koohchakad
+    name: باشگاه کوهنوردی چکاد مشهد
+  - username: touchal_club
+    name: باشگاه توچال
+  - username: koohnaavard
+    name: باشگاه ورزشی کوهنورد
+  - username: koohyarann
+    name: کوهیاران
+  - username: koohyad
+    name: کوهیاد
+  - username: tehrankooh
+    name: باشگاه کوهنوردی تهرانکوه
+  - username: ofogh_tehran
+    name: باشگاه کوهنوردی افق تهران
+  - username: oogh_club
+    name: باشگاه کوهنوردی اوج
+  - username: koohnameh
+    name: پایگاه خبری تحلیلی کوه نامه
+  - username: koohgram
+    name: کوه گرام
+  - username: iranmountainmed
+    name: انجمن پزشکی کوهستان ایران
+  - username: arash_club
+    name: باشگاه کوه نوردان آرش
+  - username: barim_kooh
+    name: سامانه بریم کوه
+  - username: iran_alpinist
+    name: انجمن کوه نوردان ایران
+  - username: damavand_amoozesh
+    name: دماوند آموزش
+  - username: tarnam_baran
+    name: باشگاه ورزشی ترنم باران
+  - username: ohd_khorasan
+    name: باشگاه کوهنوردی اُحُد خراسان
+  - username: tokooh
+    name: باشگاه كوهنوردى تهران
+  - username: hamnavardan
+    name: باشگاه همنوردان پایتخت
+  - username: hamnavard
+    name: باشگاه کوهنوردی همنورد
+  - username: salamat_khorasan
+    name: باشگاه کوهنوردی سلامت خراسان
+  - username: be_solehat_kooh
+    name: به صلابت کوه
+
+# Content filtering
+filter:
+  # Exclude keywords (Persian)
+  exclude_keywords:
+    - کلاس
+    - دوره
+    - آموزش
+    - ثبت نام
+    - تور
+    - طبیعت گردی
+    - کمپینگ
+    - اردو
+    - برنامه هفتگی
+    - برنامه ماهانه
+    - اطلاعیه
+    - اعلامیه
+    - لغو
+    - تغییر برنامه
+  
+  # Minimum caption length for media
+  min_caption_length: 20
 
 # Podcast settings
 podcast:
-  language: fa  # Persian
+  language: fa
   style: conversational
-  longform: true  # For 15-20 minute podcasts
-  system_prompt: |
-    شما دو میزبان پادکست هستید که به زبان فارسی صحبت می‌کنید.
-    مطالب علمی و پزشکی را به صورت ساده و روان برای عموم مردم توضیح دهید.
-    از اصطلاحات تخصصی پرهیز کنید.
+  max_messages: 50
+  intro_template: |
+    سلام و درود خدمت شنوندگان عزیز.
+    این پادکست خلاصه اخبار کوهنوردی دیروز {date} هست.
+    از بین {total_messages} پیام در {channels_count} کانال فعال، توسط پایگاه خبری تحلیلی کوهنامه تهیه شده است.
+  
+  outro_template: |
+    ممنون که وقت گذاشتید و گوش دادید.
+    فردا همینجا منتظرتون هستیم.
+    تا دیدار خدا نگهدارتون باشه.
 
 # Output settings
 output_dir: output
-keep_days: 7  # Keep old podcasts for 7 days
+keep_days: 7
