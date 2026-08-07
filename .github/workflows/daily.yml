@@ -1,0 +1,37 @@
+name: Daily Podcast Generation
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Every day at 6:00 UTC (9:30 Iran)
+  workflow_dispatch:
+
+jobs:
+  generate-podcast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Run podcast bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Upload podcast as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast
+          path: output/*.mp3
+          retention-days: 7
