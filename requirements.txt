@@ -3,3 +3,4 @@ requests>=2.28
 beautifulsoup4>=4.11
 pyyaml>=6.0
 telethon>=1.28
+jdatetime>=4.0
