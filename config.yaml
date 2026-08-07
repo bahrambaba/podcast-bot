@@ -3,19 +3,19 @@
 # Koohnameh channel username (source of channel list)
 koohnameh_username: koohnameh
 
-# Known Telegram channels for mountaineering
+# Known Telegram channels for mountaineering (verified usernames)
 channels:
-  - username: koohchakad
+  - username: chakadclub
     name: باشگاه کوهنوردی چکاد مشهد
-  - username: touchal_club
+  - username: touchalclub
     name: باشگاه توچال
-  - username: koohnaavard
+  - username: koohnavardclub
     name: باشگاه ورزشی کوهنورد
   - username: koohyarann
     name: کوهیاران
   - username: koohyad
     name: کوهیاد
-  - username: tehrankooh
+  - username: TehranKouh
     name: باشگاه کوهنوردی تهرانکوه
   - username: ofogh_tehran
     name: باشگاه کوهنوردی افق تهران
@@ -23,15 +23,15 @@ channels:
     name: باشگاه کوهنوردی اوج
   - username: koohnameh
     name: پایگاه خبری تحلیلی کوه نامه
-  - username: koohgram
+  - username: KoohGram
     name: کوه گرام
-  - username: iranmountainmed
+  - username: irmma
     name: انجمن پزشکی کوهستان ایران
-  - username: arash_club
+  - username: arashclubchannel
     name: باشگاه کوه نوردان آرش
-  - username: barim_kooh
+  - username: berimkouh
     name: سامانه بریم کوه
-  - username: iran_alpinist
+  - username: alpineclub_iran
     name: انجمن کوه نوردان ایران
   - username: damavand_amoozesh
     name: دماوند آموزش
@@ -41,13 +41,13 @@ channels:
     name: باشگاه کوهنوردی اُحُد خراسان
   - username: tokooh
     name: باشگاه كوهنوردى تهران
-  - username: hamnavardan
+  - username: hamnavardanepaytakht
     name: باشگاه همنوردان پایتخت
   - username: hamnavard
     name: باشگاه کوهنوردی همنورد
   - username: salamat_khorasan
     name: باشگاه کوهنوردی سلامت خراسان
-  - username: be_solehat_kooh
+  - username: besalabatkooh
     name: به صلابت کوه
 
 # Content filtering
