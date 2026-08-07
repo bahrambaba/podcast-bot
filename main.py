@@ -30,51 +30,21 @@ def load_config():
 # PART 1: Get channel list from Koohnameh
 # =============================================================================
 
-def get_koohnameh_channels():
+def get_koohnameh_channels(config):
     """
-    Fetch the daily channel list from Koohnameh Telegram channel.
+    Fetch the channel list from config.
     Returns list of (channel_name, channel_username) tuples.
     """
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    koohnameh_username = "koohnameh"
-    
-    # Get latest posts from Koohnameh
-    url = f"https://api.telegram.org/bot{bot_token}/getUpdates?limit=100"
-    
     channels = []
     
-    # Parse Koohnameh post to extract channel links
-    # Format: [channel_name](https://t.me/username)
-    # Or: t.me/username in text
+    # Read from config.yaml
+    known_channels = config.get("channels", {})
     
-    # Known channels from Koohnameh daily reports
-    known_channels = {
-        "koohchakad": "باشگاه کوهنوردی چکاد مشهد",
-        "koohnameh": "پایگاه خبری تحلیلی کوه نامه",
-        "touchal_club": "باشگاه توچال",
-        "koohnaavard": "باشگاه ورزشی کوهنورد",
-        "koohyarann": "کوهیاران",
-        "koohyad": "کوهیاد",
-        "tehrankooh": "باشگاه کوهنوردی تهرانکوه",
-        "ofogh_tehran": "کانال باشگاه کوهنوردی افق ت Tehran",
-        "oogh_club": "باشگاه کوهنوردی اوج",
-        "koohgram": "کوه گرام",
-        "iranmountainmed": "انجمن پزشکی کوهستان ایران",
-        "arash_club": "کانال باشگاه کوه نوردان آرش",
-        "barim_kooh": "سامانه بریم کوه",
-        "iran_alpinist": "انجمن کوه نوردان ایران",
-        "damavand_amoozesh": "دماوند آموزش",
-        "tarnam_baran": "باشگاه ورزشی ترنم باران",
-        "ohd_khorasan": "باشگاه کوهنوردی اُحُد خراسان",
-        "tokooh": "باشگاه كوهنوردى تهران",
-        "hamnavardan": "باشگاه همنوردان پایتخت",
-        "hamnavard": "کانال باشگاه کوهنوردی همنورد",
-        "salamat_khorasan": "کانال باشگاه کوهنوردی سلامت خراسان",
-        "be_solehat_kooh": "🍁 به صلابت کوه 🍁",
-    }
-    
-    for username, name in known_channels.items():
-        channels.append((name, username))
+    for ch in known_channels:
+        username = ch.get("username", "")
+        name = ch.get("name", "")
+        if username:
+            channels.append((name, username))
     
     logger.info(f"Loaded {len(channels)} known channels")
     return channels
@@ -395,7 +365,7 @@ def main():
     
     # Step 1: Get channel list
     logger.info("\n📡 Step 1: Getting channel list...")
-    channels = get_koohnameh_channels()
+    channels = get_koohnameh_channels(config)
     logger.info(f"Found {len(channels)} channels")
     
     # Step 2: Fetch messages
