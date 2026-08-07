@@ -94,8 +94,7 @@ def fetch_channel_messages(channel_username, days_back=1):
                 message_count = 0
                 async for message in client.iter_messages(
                     entity,
-                    offset_date=datetime.now(),
-                    reverse=True
+                    limit=100,
                 ):
                     if message.date.replace(tzinfo=None) >= since_date:
                         # Check if has media
