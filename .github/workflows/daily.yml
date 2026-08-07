@@ -1,8 +1,8 @@
-name: Daily Podcast Generation
+name: Daily Koohnameh Podcast
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Every day at 6:00 UTC (9:30 Iran)
+    - cron: '0 18 * * *'  # Every day at 18:00 UTC (21:30 Iran)
   workflow_dispatch:
 
 jobs:
@@ -19,19 +19,22 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: pip install -r requirements.txt
 
       - name: Run podcast bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
 
       - name: Upload podcast as artifact
         uses: actions/upload-artifact@v4
         with:
           name: podcast
-          path: output/*.mp3
+          path: |
+            output/*.mp3
+            output/*.txt
           retention-days: 7
