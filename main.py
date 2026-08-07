@@ -78,6 +78,10 @@ def fetch_channel_messages(channel_username, days_back=1):
             client = TelegramClient(session_name, api_id, api_hash)
             await client.start()
             
+            # Check if we're connected as user or bot
+            me = await client.get_me()
+            logger.info(f"Connected as: {me.first_name} (ID: {me.id})")
+            
             # Calculate date filter
             since_date = datetime.now() - timedelta(days=days_back)
             
