@@ -88,8 +88,10 @@ def fetch_channel_messages(channel_username, days_back=1):
             # Get channel entity
             try:
                 entity = await client.get_entity(channel_username)
+                logger.info(f"  Entity found: {entity.title if hasattr(entity, 'title') else channel_username}")
                 
                 # Get messages
+                message_count = 0
                 async for message in client.iter_messages(
                     entity,
                     offset_date=datetime.now(),
@@ -123,10 +125,13 @@ def fetch_channel_messages(channel_username, days_back=1):
                             "media_type": media_type,
                             "views": message.views or 0,
                         })
+                        message_count += 1
                     
                     # Stop if we went past our date range
                     if message.date.replace(tzinfo=None) < since_date:
                         break
+                
+                logger.info(f"  Messages fetched: {message_count}")
             
             except Exception as e:
                 logger.error(f"Error fetching {channel_username}: {e}")
