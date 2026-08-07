@@ -14,6 +14,7 @@ import logging
 import subprocess
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+import jdatetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -221,31 +222,28 @@ def generate_podcast_content(messages, config):
     today = datetime.now()
     yesterday = today - timedelta(days=1)
     
-    # Persian date (Jalali approximation)
-    jalali_months = [
-        "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-        "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-    ]
-    # Simple approximation for display
-    jalali_day = yesterday.day
-    jalali_month = jalali_months[yesterday.month - 1] if yesterday.month <= 12 else "مرداد"
-    jalali_year = 1405  # Fixed for now, should be calculated
+    # Convert to Jalali (Persian) dates
+    today_jalali = jdatetime.datetime.fromgregorian(datetime=today)
+    yesterday_jalali = jdatetime.datetime.fromgregorian(datetime=yesterday)
+    
+    # Format Jalali dates
+    today_jalali_str = today_jalali.strftime("%d %B %Y")
+    yesterday_jalali_str = yesterday_jalali.strftime("%d %B %Y")
     
     # Create prompt
     prompt = f"""شما یک مجری برنامه صبحگاهی کوهنوردی هستید.
 
-تاریخ امروز: {today.strftime('%Y/%m/%d')}
-تاریخ دیروز (روز اخبار): {yesterday.strftime('%Y/%m/%d')}
-تاریخ شمسی دیروز: {jalali_day} {jalali_month} {jalali_year}
+تاریخ امروز: {today_jalali_str}
+تاریخ دیروز (روز اخبار): {yesterday_jalali_str}
 
 تعداد پیام‌های دریافتی: {len(messages)}
 تعداد کانال‌های فعال: {len(channels)}
 
-لطفاً خلاصه اخبار کوهنوردی دیروز ({yesterday.strftime('%Y/%m/%d')}) را به صورت یک متن پادکست بنویسید.
+لطفاً خلاصه اخبار کوهنوردی دیروز ({yesterday_jalali_str}) را به صورت یک متن پادکست بنویسید.
 
 قوانین:
 ۱. با سلام و احوالپرسی شروع کنید
-۲. تاریخ دیروز را دقیقاً ذکر کنید ( هم شمسی هم میلادی)
+۲. تاریخ دیروز را دقیقاً به شمسی ذکر کنید
 ۳. اخبار مهم را به صورت خلاصه بیان کنید
 ۴. لحن صمیمی و حرفه‌ای داشته باشید
 ۵. حدود ۱۵-۲۰ دقیقه صحبت کنید
