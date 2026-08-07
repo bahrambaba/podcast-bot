@@ -1,52 +1,74 @@
-# 🎙️ Persian Podcast Bot
+# 🎙️ Koohnameh Podcast Bot
 
-Automatic podcast generator that fetches content from RSS feeds and generates Persian audio using AI.
+Daily podcast generator that reads mountaineering news from Telegram channels and produces Persian audio summaries.
 
 ## Features
 
-- 📡 Fetches content from multiple RSS feeds
-- 🤖 Uses AI to generate natural conversations
+- 📡 Reads 22+ Iranian mountaineering Telegram channels
+- 🔍 Smart content filtering (excludes class announcements, tours, nature trips)
 - 🎙️ Generates 15-20 minute Persian podcasts
+- 🤖 Uses Gemini AI for script writing and TTS
 - 📱 Sends audio to Telegram automatically
 - ⏰ Runs daily via GitHub Actions
 
 ## Setup
 
-### 1. Get Gemini API Key
+### 1. Get Required API Keys
 
-1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
-2. Create a new API key
-3. Copy the key
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Gemini API | [aistudio.google.com](https://aistudio.google.com/apikey) | AI + TTS |
+| Telegram Bot | [@BotFather](https://t.me/BotFather) | Send audio |
+| Telegram API | [my.telegram.org](https://my.telegram.org) | Read channels |
 
 ### 2. Create GitHub Secrets
 
-Go to your repo Settings → Secrets and variables → Actions:
+Go to Settings → Secrets and variables → Actions:
 
 | Secret Name | Value |
 |-------------|-------|
-| `GEMINI_API_KEY` | Your Gemini API key |
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token |
-| `TELEGRAM_CHAT_ID` | Your Telegram chat ID |
+| `GEMINI_API_KEY` | Gemini API key |
+| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
+| `TELEGRAM_CHAT_ID` | Target chat/group ID |
+| `TELEGRAM_API_ID` | From my.telegram.org |
+| `TELEGRAM_API_HASH` | From my.telegram.org |
 
 ### 3. Enable GitHub Actions
 
-1. Go to Actions tab in your repo
-2. Click "Enable workflow"
+Go to Actions → Enable workflow
 
-## Usage
+## How It Works
 
-### Automatic (Daily)
-The bot runs automatically every day at 6:00 UTC (9:30 Iran time).
+```
+Every day at 21:30 Iran time:
+    ↓
+1. Get channel list from Koohnameh
+    ↓
+2. Read messages from each channel
+    ↓
+3. Filter content (exclude ads, announcements)
+    ↓
+4. Generate podcast script with Gemini AI
+    ↓
+5. Convert to Persian audio (TTS)
+    ↓
+6. Send to Telegram group
+```
 
-### Manual
-Go to Actions → Daily Podcast Generation → Run workflow
+## Content Filtering
+
+The bot automatically excludes:
+- ❌ Class/course announcements
+- ❌ Tour/nature trip schedules
+- ❌ Images/videos without captions
+- ❌ Very short messages (< 20 chars)
 
 ## Configuration
 
 Edit `config.yaml` to:
-- Add/remove RSS feeds
-- Change podcast duration
-- Modify language/style settings
+- Add/remove channels
+- Change filter keywords
+- Modify podcast templates
 
 ## Project Structure
 
@@ -61,13 +83,6 @@ podcast-bot/
 ├── output/              # Generated podcasts
 └── data/               # Results cache
 ```
-
-## How It Works
-
-1. **Fetch**: Reads RSS feeds for latest articles
-2. **Prepare**: Extracts and cleans content
-3. **Generate**: Creates Persian conversation podcast
-4. **Send**: Uploads audio to Telegram group
 
 ## License
 
