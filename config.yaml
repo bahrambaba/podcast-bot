@@ -1,0 +1,29 @@
+# Podcast Bot Configuration
+
+# RSS Feed URLs
+feeds:
+  - https://www.aanma.org/feed/
+  - https://www.annallergy.org/current.rss
+  - https://www.sciencedaily.com/rss/health_medicine/asthma.xml
+  - https://www.dovepress.com/feed.php?journal_id=27
+  - https://asthmamomlife.blogspot.com/feeds/posts/default
+  - https://www.resmedjournal.com/current.rss
+  - https://asthma.ca/feed/
+
+# Content settings
+max_per_feed: 5
+max_content_length: 10000
+
+# Podcast settings
+podcast:
+  language: fa  # Persian
+  style: conversational
+  longform: true  # For 15-20 minute podcasts
+  system_prompt: |
+    شما دو میزبان پادکست هستید که به زبان فارسی صحبت می‌کنید.
+    مطالب علمی و پزشکی را به صورت ساده و روان برای عموم مردم توضیح دهید.
+    از اصطلاحات تخصصی پرهیز کنید.
+
+# Output settings
+output_dir: output
+keep_days: 7  # Keep old podcasts for 7 days
