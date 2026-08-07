@@ -226,9 +226,18 @@ def generate_podcast_content(messages, config):
     today_jalali = jdatetime.datetime.fromgregorian(datetime=today)
     yesterday_jalali = jdatetime.datetime.fromgregorian(datetime=yesterday)
     
+    # Persian month names
+    jalali_months = [
+        'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+        'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+    ]
+    
+    def format_jalali(dt):
+        return f'{dt.day} {jalali_months[dt.month - 1]} {dt.year}'
+    
     # Format Jalali dates
-    today_jalali_str = today_jalali.strftime("%d %B %Y")
-    yesterday_jalali_str = yesterday_jalali.strftime("%d %B %Y")
+    today_jalali_str = format_jalali(today_jalali)
+    yesterday_jalali_str = format_jalali(yesterday_jalali)
     
     # Create prompt
     prompt = f"""شما یک مجری برنامه صبحگاهی کوهنوردی هستید.
