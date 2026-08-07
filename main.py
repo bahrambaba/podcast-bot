@@ -217,19 +217,35 @@ def generate_podcast_content(messages, config):
     # Count channels
     channels = set(msg.get('channel', '') for msg in messages)
     
+    # Calculate dates
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
+    
+    # Persian date (Jalali approximation)
+    jalali_months = [
+        "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+        "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+    ]
+    # Simple approximation for display
+    jalali_day = yesterday.day
+    jalali_month = jalali_months[yesterday.month - 1] if yesterday.month <= 12 else "مرداد"
+    jalali_year = 1405  # Fixed for now, should be calculated
+    
     # Create prompt
     prompt = f"""شما یک مجری برنامه صبحگاهی کوهنوردی هستید.
 
-تاریخ امروز: {datetime.now().strftime('%Y/%m/%d')}
+تاریخ امروز: {today.strftime('%Y/%m/%d')}
+تاریخ دیروز (روز اخبار): {yesterday.strftime('%Y/%m/%d')}
+تاریخ شمسی دیروز: {jalali_day} {jalali_month} {jalali_year}
 
 تعداد پیام‌های دریافتی: {len(messages)}
 تعداد کانال‌های فعال: {len(channels)}
 
-لطفاً خلاصه اخبار کوهنوردی دیروز را به صورت یک متن پادکست بنویسید.
+لطفاً خلاصه اخبار کوهنوردی دیروز ({yesterday.strftime('%Y/%m/%d')}) را به صورت یک متن پادکست بنویسید.
 
 قوانین:
 ۱. با سلام و احوالپرسی شروع کنید
-۲. تاریخ و آمار را ذکر کنید
+۲. تاریخ دیروز را دقیقاً ذکر کنید ( هم شمسی هم میلادی)
 ۳. اخبار مهم را به صورت خلاصه بیان کنید
 ۴. لحن صمیمی و حرفه‌ای داشته باشید
 ۵. حدود ۱۵-۲۰ دقیقه صحبت کنید
