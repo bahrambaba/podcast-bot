@@ -264,36 +264,52 @@ def generate_podcast_content(messages, config):
 
 لطفاً متن پادکست را بنویسید:"""
     
-    # Call Gemini API
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Try multiple Gemini models
+    models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+    ]
     
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": prompt
-            }]
-        }],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 8000,
-        }
-    }
-    
-    try:
-        resp = requests.post(url, json=payload, timeout=120)
-        data = resp.json()
+    for model in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         
-        if "candidates" in data and data["candidates"]:
-            script = data["candidates"][0]["content"]["parts"][0]["text"]
-            logger.info(f"Generated script: {len(script)} chars")
-            return script
-        else:
-            logger.error(f"Gemini error: {data}")
-            return None
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": prompt
+                }]
+            }],
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 8000,
+            }
+        }
+        
+        try:
+            logger.info(f"Trying model: {model}")
+            resp = requests.post(url, json=payload, timeout=120)
+            data = resp.json()
             
-    except Exception as e:
-        logger.error(f"Gemini API error: {e}")
-        return None
+            if "candidates" in data and data["candidates"]:
+                script = data["candidates"][0]["content"]["parts"][0]["text"]
+                logger.info(f"Generated script with {model}: {len(script)} chars")
+                return script
+            elif "error" in data:
+                error_msg = data["error"].get("message", "Unknown")
+                logger.warning(f"Model {model} failed: {error_msg[:100]}")
+                continue
+            else:
+                logger.warning(f"Model {model} returned unexpected response")
+                continue
+                
+        except Exception as e:
+            logger.error(f"Model {model} error: {e}")
+            continue
+    
+    logger.error("All models failed")
+    return None
 
 
 def generate_audio(script, output_path, config):
