@@ -1,9 +1,9 @@
 # Koohnameh Podcast Bot Configuration
 
-# Koohnameh channel username (source of channel list)
+# Source channel for trigger post
 koohnameh_username: koohnameh
 
-# Known Telegram channels for mountaineering (verified usernames)
+# Fallback channel list (used only if trigger post has no parseable channels)
 channels:
   - username: chakadclub
     name: باشگاه کوهنوردی چکاد مشهد
@@ -51,43 +51,20 @@ channels:
     name: به صلابت کوه
 
 # Content filtering
-filter:
-  # Exclude keywords (Persian)
+filters:
   exclude_keywords:
     - کلاس
     - دوره
     - آموزش
     - ثبت نام
+    - هزینه
+    - شهریه
     - تور
+    - سفر
     - طبیعت گردی
-    - کمپینگ
-    - اردو
-    - برنامه هفتگی
-    - برنامه ماهانه
-    - اطلاعیه
-    - اعلامیه
-    - لغو
-    - تغییر برنامه
-  
-  # Minimum caption length for media
-  min_caption_length: 20
-
-# Podcast settings
-podcast:
-  language: fa
-  style: conversational
-  max_messages: 50
-  voice: fa-IR-DilaraNeural
-  intro_template: |
-    سلام و درود خدمت شنوندگان عزیز.
-    این پادکست خلاصه اخبار کوهنوردی دیروز {date} هست.
-    از بین {total_messages} پیام در {channels_count} کانال فعال، توسط پایگاه خبری تحلیلی کوهنامه تهیه شده است.
-  
-  outro_template: |
-    ممنون که وقت گذاشتید و گوش دادید.
-    فردا همینجا منتظرتون هستیم.
-    تا دیدار خدا نگهدارتون باشه.
-
-# Output settings
-output_dir: output
-keep_days: 7
+    - گردشگری
+    - ساعت
+    - مکان
+    - محل تجمع
+  # Minimum message text length to include
+  min_caption_length: 50
