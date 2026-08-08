@@ -22,6 +22,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
+      - name: Refresh NotebookLM auth
+        env:
+          NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
+        run: |
+          # Write master token to profile dir
+          mkdir -p ~/.notebooklm/profiles/default
+          echo "$NOTEBOOKLM_MASTER_TOKEN" > ~/.notebooklm/profiles/default/master_token.json
+          # Refresh cookies from master token
+          python -m notebooklm login --master-token-refresh
+      
       - name: Run podcast bot
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
