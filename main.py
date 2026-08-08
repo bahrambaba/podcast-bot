@@ -4,7 +4,6 @@ Koohnameh Podcast Bot
 Fetches mountain news from Telegram channels and generates Persian podcasts using NotebookLM.
 """
 
-import feedparser
 import requests
 import json
 import os
@@ -13,7 +12,6 @@ import yaml
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from bs4 import BeautifulSoup
 import jdatetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -27,20 +25,14 @@ def load_config():
 
 
 # =============================================================================
-# PART 1: Get channel list from Koohnameh
+# PART 1: Get channel list from config
 # =============================================================================
 
 def get_koohnameh_channels(config):
-    """
-    Fetch the channel list from config.
-    Returns list of (channel_name, channel_username) tuples.
-    """
+    """Fetch the channel list from config."""
     channels = []
-    
-    # Read from config.yaml
     for ch in config.get('channels', []):
         channels.append((ch['name'], ch['username']))
-    
     return channels
 
 
@@ -55,48 +47,36 @@ async def fetch_messages_from_channel(client, channel_username, since_date):
     messages = []
     
     try:
-        # Get channel entity
-        try:
-            entity = await client.get_entity(channel_username)
-            logger.info(f"  Entity found: {entity.title if hasattr(entity, 'title') else channel_username}")
-            
-            # Get messages
-            message_count = 0
-            async for message in client.iter_messages(
-                entity,
-                limit=100,
-            ):
-                if message.date.replace(tzinfo=None) >= since_date:
-                    # Check if has media
-                    has_media = message.media is not None
-                    
-                    # Check if has meaningful text
-                    text = message.text or ""
-                    has_text = len(text.strip()) > 20
-                    
-                    messages.append({
-                        "id": message.id,
-                        "date": message.date.isoformat(),
-                        "text": text,
-                        "has_media": has_media,
-                        "has_text": has_text,
-                        "channel": channel_username
-                    })
-                    message_count += 1
-                else:
-                    break
-            
-            logger.info(f"  Messages fetched: {message_count}")
-            
-        except errors.UsernameNotOccupiedError:
-            logger.warning(f"  Channel not found: {channel_username}")
-        except errors.ChannelPrivateError:
-            logger.warning(f"  Channel is private: {channel_username}")
-        except Exception as e:
-            logger.error(f"  Error fetching {channel_username}: {e}")
-            
+        entity = await client.get_entity(channel_username)
+        logger.info(f"  Entity found: {entity.title if hasattr(entity, 'title') else channel_username}")
+        
+        message_count = 0
+        async for message in client.iter_messages(entity, limit=100):
+            if message.date.replace(tzinfo=None) >= since_date:
+                text = message.text or ""
+                has_media = message.media is not None
+                has_text = len(text.strip()) > 20
+                
+                messages.append({
+                    "id": message.id,
+                    "date": message.date.isoformat(),
+                    "text": text,
+                    "has_media": has_media,
+                    "has_text": has_text,
+                    "channel": channel_username
+                })
+                message_count += 1
+            else:
+                break
+        
+        logger.info(f"  Messages fetched: {message_count}")
+        
+    except errors.UsernameNotOccupiedError:
+        logger.warning(f"  Channel not found: {channel_username}")
+    except errors.ChannelPrivateError:
+        logger.warning(f"  Channel is private: {channel_username}")
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"  Error fetching {channel_username}: {e}")
     
     return messages
 
@@ -115,7 +95,6 @@ async def fetch_all_messages(channels, days_back=1):
     messages = []
     
     async def get_messages():
-        # Use session file if available, otherwise create new session
         session_file = "bot_session.session"
         if os.path.exists(session_file):
             client = TelegramClient(session_file.replace('.session', ''), api_id, api_hash)
@@ -124,7 +103,6 @@ async def fetch_all_messages(channels, days_back=1):
         
         await client.start()
         
-        # Calculate since date
         since_date = (datetime.now() - timedelta(days=days_back)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -137,7 +115,6 @@ async def fetch_all_messages(channels, days_back=1):
         await client.disconnect()
     
     await get_messages()
-    
     return messages
 
 
@@ -149,7 +126,6 @@ EXCLUDE_KEYWORDS = [
     "کلاس", "دوره", "آموزش", "ثبت نام", "هزینه", "شهریه",
     "تور", "سفر", "طبیعت گردی", "گردشگری",
     "ساعت", "مکان", "محل تجمع",
-    "تصویر", "عکس", "ویدیو",
 ]
 
 def filter_messages(messages, config):
@@ -163,15 +139,12 @@ def filter_messages(messages, config):
     for msg in messages:
         text = msg.get('text', '')
         
-        # Skip if no text
         if not text or len(text.strip()) < min_caption_length:
             continue
         
-        # Skip if contains exclude keywords
         if any(keyword in text for keyword in exclude_keywords):
             continue
         
-        # Skip if only media without caption
         if msg.get('has_media') and not msg.get('has_text'):
             continue
         
@@ -192,7 +165,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     """
     from notebooklm import NotebookLMClient, AuthTokens
     
-    # Prepare content summary
+    # Prepare content
     content = "اخبار کوهنوردی دیروز:\n\n"
     
     channels = {}
@@ -204,7 +177,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     
     for ch, msgs in channels.items():
         content += f"کانال {ch}:\n"
-        for m in msgs[:5]:  # Limit per channel
+        for m in msgs[:5]:
             content += f"- {m}\n"
         content += "\n"
     
@@ -212,7 +185,6 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     today = datetime.now()
     yesterday = today - timedelta(days=1)
     
-    today_jalali = jdatetime.datetime.fromgregorian(datetime=today)
     yesterday_jalali = jdatetime.datetime.fromgregorian(datetime=yesterday)
     
     jalali_months = [
@@ -225,47 +197,35 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     
     yesterday_jalali_str = format_jalali(yesterday_jalali)
     
-    # Create prompt for NotebookLM
-    prompt = f"""لطفاً یک پادکست خبری کوهنوردی از این محتوا بسازید.
-
-تاریخ اخبار: {yesterday_jalali_str}
-
-قوانین:
-۱. با سلام و احوالپرسی شروع کنید
-۲. تاریخ دیروز را دقیقاً به شمسی ذکر کنید
-۳. اخبار مهم را به صورت خلاصه بیان کنید
-۴. لحن صمیمی و حرفه‌ای داشته باشید
-۵. حدود ۱۵-۲۰ دقیقه صحبت کنید
-۶. در پایان از مخاطبان خداحافظی کنید
-
-محتوا:
-{content}"""
+    # Get auth tokens from environment
+    cookies_str = os.environ.get("NOTEBOOKLM_COOKIES", "")
+    csrf_token = os.environ.get("NOTEBOOKLM_CSRF", "")
+    session_id = os.environ.get("NOTEBOOKLM_SESSION_ID", "")
+    
+    if not cookies_str:
+        logger.error("NOTEBOOKLM_COOKIES not set!")
+        logger.info("Please set these secrets:")
+        logger.info("1. NOTEBOOKLM_COOKIES - Browser cookies from notebooklm.google.com")
+        logger.info("2. NOTEBOOKLM_CSRF - CSRF token from browser")
+        logger.info("3. NOTEBOOKLM_SESSION_ID - Session ID from browser")
+        return False
+    
+    # Parse cookies
+    cookies = {}
+    for item in cookies_str.split(";"):
+        if "=" in item:
+            key, value = item.strip().split("=", 1)
+            cookies[key] = value
+    
+    auth = AuthTokens(
+        cookies=cookies,
+        csrf_token=csrf_token,
+        session_id=session_id
+    )
+    
+    client = NotebookLMClient(auth)
     
     try:
-        # Get auth tokens from environment or config
-        cookies_str = os.environ.get("NOTEBOOKLM_COOKIES", "")
-        csrf_token = os.environ.get("NOTEBOOKLM_CSRF", "")
-        session_id = os.environ.get("NOTEBOOKLM_SESSION_ID", "")
-        
-        if not cookies_str:
-            logger.error("NOTEBOOKLM_COOKIES not set")
-            return False
-        
-        # Parse cookies
-        cookies = {}
-        for item in cookies_str.split(";"):
-            if "=" in item:
-                key, value = item.strip().split("=", 1)
-                cookies[key] = value
-        
-        auth = AuthTokens(
-            cookies=cookies,
-            csrf_token=csrf_token,
-            session_id=session_id
-        )
-        
-        client = NotebookLMClient(auth)
-        
         # Create notebook
         logger.info("Creating notebook...")
         nb = await client.notebooks.create(title=f"پادکست کوهنامه {yesterday_jalali_str}")
@@ -280,7 +240,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
         status = await client.artifacts.generate_audio(nb.id)
         
         # Wait for completion
-        logger.info("Waiting for audio generation...")
+        logger.info("Waiting for audio generation (may take a few minutes)...")
         await client.artifacts.wait_for_completion(nb.id, status.task_id)
         
         # Download audio
@@ -289,7 +249,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
         
         logger.info(f"Podcast saved: {output}")
         
-        # Cleanup - delete notebook
+        # Cleanup
         await client.notebooks.delete(nb.id)
         logger.info("Notebook deleted")
         
@@ -365,14 +325,13 @@ def main():
     
     if not filtered_messages:
         logger.warning("No messages after filtering!")
-        filtered_messages = messages[:20]  # Use unfiltered as fallback
+        filtered_messages = messages[:20]
     
     # Step 4: Generate podcast with NotebookLM
     logger.info("\n🎙️ Step 4: Generating podcast with NotebookLM...")
-    today = datetime.now()
-    yesterday = today - timedelta(days=1)
+    yesterday = datetime.now() - timedelta(days=1)
     yesterday_str = yesterday.strftime("%Y%m%d")
-    output_path = f"output/podcast_{yesterday_str}.mp3"
+    output_path = f"output/podcast_{yesterday_str}.m4a"
     os.makedirs("output", exist_ok=True)
     
     success = asyncio.run(generate_podcast_with_notebooklm(filtered_messages, config, output_path))
@@ -390,7 +349,7 @@ def main():
     ]
     date_str = f"{yesterday_jalali.day} {jalali_months[yesterday_jalali.month - 1]} {yesterday_jalali.year}"
     
-    caption = f"🎙️ پادکست کوهنامه\nتاریخ: {date_str}\nتعداد پیام‌ها: {len(filtered_messages)}"
+    caption = f"🎙️ پادکست کوهنامه\nتاریخ: {date_str}\tعداد پیام‌ها: {len(filtered_messages)}"
     send_to_telegram(output_path, caption, config)
     
     logger.info("\n✅ Done!")
