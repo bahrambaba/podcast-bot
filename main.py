@@ -164,19 +164,32 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     
     yesterday_jalali_str = format_jalali(yesterday_jalali)
     
-    # === AUTH: AUTH_JSON method ===
+    # === AUTH: Write both tokens to profile dir ===
     auth_json = os.environ.get("NOTEBOOKLM_AUTH_JSON", "")
+    master_token = os.environ.get("NOTEBOOKLM_MASTER_TOKEN", "")
     
     if not auth_json:
         logger.error("NOTEBOOKLM_AUTH_JSON not set!")
         return False
     
     try:
-        # Write auth_json to storage_state.json
-        with open("storage_state.json", "w") as f:
+        # Write to the profile directory that from_storage() expects
+        profile_dir = os.path.expanduser("~/.notebooklm/profiles/default")
+        os.makedirs(profile_dir, exist_ok=True)
+        
+        storage_path = os.path.join(profile_dir, "storage_state.json")
+        with open(storage_path, "w") as f:
             f.write(auth_json)
-        os.chmod("storage_state.json", 0o600)
-        logger.info("storage_state.json written from AUTH_JSON")
+        os.chmod(storage_path, 0o600)
+        
+        if master_token:
+            token_path = os.path.join(profile_dir, "master_token.json")
+            with open(token_path, "w") as f:
+                f.write(master_token)
+            os.chmod(token_path, 0o600)
+            logger.info("Auth tokens written to profile dir (with master token)")
+        else:
+            logger.info("Auth tokens written to profile dir (no master token)")
         
         # Create client using from_storage (async context manager)
         logger.info("Creating NotebookLM client...")
