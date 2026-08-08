@@ -193,9 +193,9 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
             # Step 2: Add content as source
             logger.info("Adding source content...")
             await client.sources.add_text(
-                nb.id, 
-                content, 
-                title=f"اخبار کوهنوردی {yesterday_jalali_str}"
+                nb.id,
+                f"اخبار کوهنوردی {yesterday_jalali_str}",
+                content
             )
             logger.info("Source added")
             
@@ -209,7 +209,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
             await client.artifacts.wait_for_completion(
                 nb.id, 
                 status.task_id,
-                wait_budget=1200  # 20 minutes max
+                timeout=1200
             )
             logger.info("Audio generation completed!")
             
