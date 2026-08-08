@@ -26,10 +26,8 @@ jobs:
         env:
           NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
         run: |
-          # Write master token to profile dir
           mkdir -p ~/.notebooklm/profiles/default
-          echo "$NOTEBOOKLM_MASTER_TOKEN" > ~/.notebooklm/profiles/default/master_token.json
-          # Refresh cookies from master token
+          printenv NOTEBOOKLM_MASTER_TOKEN > ~/.notebooklm/profiles/default/master_token.json
           python -m notebooklm login --master-token-refresh
       
       - name: Run podcast bot
