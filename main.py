@@ -2,7 +2,7 @@
 """
 Koohnameh Podcast Bot
 Fetches mountain news from Telegram channels and generates Persian podcasts using NotebookLM.
-Uses Master Token authentication for headless/CI use.
+Uses NOTEBOOKLM_AUTH_JSON for authentication (no browser needed).
 """
 
 import requests
@@ -125,12 +125,12 @@ def filter_messages(messages, config):
 
 
 # =============================================================================
-# PART 4: Generate podcast with NotebookLM (Master Token auth)
+# PART 4: Generate podcast with NotebookLM (AUTH_JSON method)
 # =============================================================================
 
 async def generate_podcast_with_notebooklm(messages, config, output_path):
     """
-    Generate podcast using NotebookLM with Master Token authentication.
+    Generate podcast using NotebookLM with AUTH_JSON authentication.
     """
     from notebooklm import NotebookLMClient, AuthTokens
     
@@ -164,40 +164,25 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
     
     yesterday_jalali_str = format_jalali(yesterday_jalali)
     
-    # === AUTH: Master Token method ===
-    # Write master_token.json and storage_state.json from env vars
-    master_token_json = os.environ.get("NOTEBOOKLM_MASTER_TOKEN", "")
+    # === AUTH: AUTH_JSON method ===
     auth_json = os.environ.get("NOTEBOOKLM_AUTH_JSON", "")
     
-    if not master_token_json:
-        logger.error("NOTEBOOKLM_MASTER_TOKEN not set!")
-        logger.info("Required secrets:")
-        logger.info("1. NOTEBOOKLM_MASTER_TOKEN - content of master_token.json")
-        logger.info("2. NOTEBOOKLM_AUTH_JSON - content of storage_state.json")
+    if not auth_json:
+        logger.error("NOTEBOOKLM_AUTH_JSON not set!")
         return False
     
-    # Write master_token.json to disk
-    with open("master_token.json", "w") as f:
-        f.write(master_token_json)
-    os.chmod("master_token.json", 0o600)
-    logger.info("master_token.json written")
-    
-    # Write storage_state.json if provided
-    if auth_json:
+    try:
+        # Write auth_json to storage_state.json
         with open("storage_state.json", "w") as f:
             f.write(auth_json)
         os.chmod("storage_state.json", 0o600)
-        logger.info("storage_state.json written")
-    
-    # Create client using from_storage (uses master_token for auto-refresh)
-    try:
-        # Set profile path to current directory
-        os.environ["NOTEBOOKLM_PROFILE"] = "."
+        logger.info("storage_state.json written from AUTH_JSON")
         
+        # Create client using from_storage
         logger.info("Creating NotebookLM client...")
         client = await NotebookLMClient.from_storage(
             keepalive=600,  # Auto-refresh cookies every 600s
-            allow_headless=True  # Allow headless re-auth if needed
+            allow_headless=True  # Allow headless operation
         )
         logger.info("NotebookLM client created")
         
@@ -220,7 +205,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
         status = await client.artifacts.generate_audio(nb.id)
         logger.info(f"Audio generation started: task_id={status.task_id}")
         
-        # Step 4: Wait for completion (may take several minutes)
+        # Step 4: Wait for completion
         logger.info("Waiting for audio generation (this may take 5-10 minutes)...")
         await client.artifacts.wait_for_completion(
             nb.id, 
@@ -312,7 +297,7 @@ def main():
     logger.info("\n🎙️ Step 4: Generating podcast with NotebookLM...")
     yesterday = datetime.now() - timedelta(days=1)
     yesterday_str = yesterday.strftime("%Y%m%d")
-    output_path = f"output/podcast_{yesterday_str}.mp3"
+    output_path = f"output/podcast_{yesterday_str}.m4a"
     os.makedirs("output", exist_ok=True)
     
     success = asyncio.run(generate_podcast_with_notebooklm(filtered_messages, config, output_path))
