@@ -290,6 +290,8 @@ def generate_podcast_content(messages, config):
         try:
             logger.info(f"Trying model: {model}")
             resp = requests.post(url, json=payload, timeout=120)
+            logger.info(f"Response status: {resp.status_code}")
+            logger.info(f"Response text: {resp.text[:500]}")
             data = resp.json()
             
             if "candidates" in data and data["candidates"]:
@@ -298,10 +300,10 @@ def generate_podcast_content(messages, config):
                 return script
             elif "error" in data:
                 error_msg = data["error"].get("message", "Unknown")
-                logger.warning(f"Model {model} failed: {error_msg[:100]}")
+                logger.warning(f"Model {model} failed: {error_msg[:200]}")
                 continue
             else:
-                logger.warning(f"Model {model} returned unexpected response")
+                logger.warning(f"Model {model} returned unexpected response: {resp.text[:200]}")
                 continue
                 
         except Exception as e:
