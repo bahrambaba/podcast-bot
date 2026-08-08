@@ -201,7 +201,11 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
             
             # Step 3: Generate audio overview (podcast)
             logger.info("Generating audio overview...")
-            status = await client.artifacts.generate_audio(nb.id)
+            status = await client.artifacts.generate_audio(
+                nb.id,
+                language="fa",
+                instructions="این یک پادکست خبری فارسی درباره اخبار کوهنوردی و طبیعت ایران است. دو نفر درباره اخبار کوهنوردی دیروز صحبت می‌کنند. لطفاً به فارسی صحبت کنید."
+            )
             logger.info(f"Audio generation started: task_id={status.task_id}")
             
             # Step 4: Wait for completion
