@@ -178,54 +178,53 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
         os.chmod("storage_state.json", 0o600)
         logger.info("storage_state.json written from AUTH_JSON")
         
-        # Create client using from_storage
+        # Create client using from_storage (async context manager)
         logger.info("Creating NotebookLM client...")
-        client = await NotebookLMClient.from_storage(
+        async with NotebookLMClient.from_storage(
             keepalive=600
-        )
-        logger.info("NotebookLM client created")
+        ) as client:
+            logger.info("NotebookLM client created")
+            
+            # Step 1: Create notebook
+            logger.info("Creating notebook...")
+            nb = await client.notebooks.create(title=f"پادکست کوهنامه {yesterday_jalali_str}")
+            logger.info(f"Notebook created: {nb.id}")
+            
+            # Step 2: Add content as source
+            logger.info("Adding source content...")
+            await client.sources.add_text(
+                nb.id, 
+                content, 
+                title=f"اخبار کوهنوردی {yesterday_jalali_str}"
+            )
+            logger.info("Source added")
+            
+            # Step 3: Generate audio overview (podcast)
+            logger.info("Generating audio overview...")
+            status = await client.artifacts.generate_audio(nb.id)
+            logger.info(f"Audio generation started: task_id={status.task_id}")
+            
+            # Step 4: Wait for completion
+            logger.info("Waiting for audio generation (this may take 5-10 minutes)...")
+            await client.artifacts.wait_for_completion(
+                nb.id, 
+                status.task_id,
+                wait_budget=1200  # 20 minutes max
+            )
+            logger.info("Audio generation completed!")
+            
+            # Step 5: Download audio
+            logger.info(f"Downloading audio to {output_path}...")
+            output = await client.artifacts.download_audio(nb.id, output_path)
+            logger.info(f"Podcast saved: {output}")
+            
+            # Cleanup: delete notebook
+            try:
+                await client.notebooks.delete(nb.id)
+                logger.info("Notebook deleted (cleanup)")
+            except Exception as e:
+                logger.warning(f"Could not delete notebook: {e}")
         
-        # Step 1: Create notebook
-        logger.info("Creating notebook...")
-        nb = await client.notebooks.create(title=f"پادکست کوهنامه {yesterday_jalali_str}")
-        logger.info(f"Notebook created: {nb.id}")
-        
-        # Step 2: Add content as source
-        logger.info("Adding source content...")
-        await client.sources.add_text(
-            nb.id, 
-            content, 
-            title=f"اخبار کوهنوردی {yesterday_jalali_str}"
-        )
-        logger.info("Source added")
-        
-        # Step 3: Generate audio overview (podcast)
-        logger.info("Generating audio overview...")
-        status = await client.artifacts.generate_audio(nb.id)
-        logger.info(f"Audio generation started: task_id={status.task_id}")
-        
-        # Step 4: Wait for completion
-        logger.info("Waiting for audio generation (this may take 5-10 minutes)...")
-        await client.artifacts.wait_for_completion(
-            nb.id, 
-            status.task_id,
-            wait_budget=1200  # 20 minutes max
-        )
-        logger.info("Audio generation completed!")
-        
-        # Step 5: Download audio
-        logger.info(f"Downloading audio to {output_path}...")
-        output = await client.artifacts.download_audio(nb.id, output_path)
-        logger.info(f"Podcast saved: {output}")
-        
-        # Cleanup: delete notebook
-        try:
-            await client.notebooks.delete(nb.id)
-            logger.info("Notebook deleted (cleanup)")
-        except Exception as e:
-            logger.warning(f"Could not delete notebook: {e}")
-        
-        await client.close()
         return True
         
     except Exception as e:
