@@ -1,39 +1,51 @@
 # 🎙️ Koohnameh Podcast Bot
 
-Daily podcast generator that reads mountaineering news from Telegram channels and produces Persian audio summaries.
+Daily Persian podcast generator that reads mountaineering news from Telegram channels and produces audio via Google NotebookLM.
 
 ## Features
 
 - 📡 Reads 22+ Iranian mountaineering Telegram channels
 - 🔍 Smart content filtering (excludes class announcements, tours, nature trips)
-- 🎙️ Generates 15-20 minute Persian podcasts
-- 🤖 Uses Gemini AI for script writing and TTS
+- 🎙️ Generates Persian podcasts via NotebookLM Audio Overview
 - 📱 Sends audio to Telegram automatically
-- ⏰ Runs daily via GitHub Actions
+- ⏰ Runs daily at 21:30 Iran time via GitHub Actions
 
 ## Setup
 
-### 1. Get Required API Keys
+### 1. Local Setup (one-time)
+
+Install notebooklm-py and login to get auth tokens:
+
+```bash
+pip install "notebooklm-py[headless]"
+notebooklm login --browser msedge --master-token --account YOUR_EMAIL@gmail.com
+```
+
+This creates two files:
+- `~/.notebooklm/profiles/default/master_token.json`
+- `~/.notebooklm/profiles/default/storage_state.json`
+
+### 2. Telegram API Keys
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| Gemini API | [aistudio.google.com](https://aistudio.google.com/apikey) | AI + TTS |
 | Telegram Bot | [@BotFather](https://t.me/BotFather) | Send audio |
 | Telegram API | [my.telegram.org](https://my.telegram.org) | Read channels |
 
-### 2. Create GitHub Secrets
+### 3. Create GitHub Secrets
 
 Go to Settings → Secrets and variables → Actions:
 
 | Secret Name | Value |
 |-------------|-------|
-| `GEMINI_API_KEY` | Gemini API key |
-| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
-| `TELEGRAM_CHAT_ID` | Target chat/group ID |
 | `TELEGRAM_API_ID` | From my.telegram.org |
 | `TELEGRAM_API_HASH` | From my.telegram.org |
+| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
+| `TELEGRAM_CHAT_ID` | Target chat/group ID |
+| `NOTEBOOKLM_MASTER_TOKEN` | Content of `master_token.json` |
+| `NOTEBOOKLM_AUTH_JSON` | Content of `storage_state.json` |
 
-### 3. Enable GitHub Actions
+### 4. Enable GitHub Actions
 
 Go to Actions → Enable workflow
 
@@ -42,17 +54,15 @@ Go to Actions → Enable workflow
 ```
 Every day at 21:30 Iran time:
     ↓
-1. Get channel list from Koohnameh
+1. Read messages from 22+ Telegram channels
     ↓
-2. Read messages from each channel
+2. Filter content (exclude ads, announcements)
     ↓
-3. Filter content (exclude ads, announcements)
+3. Create NotebookLM notebook with content
     ↓
-4. Generate podcast script with Gemini AI
+4. Generate Persian audio overview (podcast)
     ↓
-5. Convert to Persian audio (TTS)
-    ↓
-6. Send to Telegram group
+5. Download audio and send to Telegram
 ```
 
 ## Content Filtering
@@ -68,22 +78,26 @@ The bot automatically excludes:
 Edit `config.yaml` to:
 - Add/remove channels
 - Change filter keywords
-- Modify podcast templates
 
 ## Project Structure
 
 ```
 podcast-bot/
-├── main.py              # Main script
-├── config.yaml          # Configuration
-├── requirements.txt     # Dependencies
+├── main.py                  # Main script
+├── config.yaml              # Channel list & filters
+├── requirements.txt         # Dependencies
 ├── .github/
 │   └── workflows/
-│       └── daily.yml   # GitHub Actions
-├── output/              # Generated podcasts
-└── data/               # Results cache
+│       └── daily.yml       # GitHub Actions workflow
+└── output/                  # Generated podcasts
 ```
 
-## License
+## Auth Refresh
 
-MIT
+The master token auto-refreshes cookies. If auth fails, re-login locally:
+
+```bash
+notebooklm login --browser msedge --master-token --account YOUR_EMAIL@gmail.com
+```
+
+Then update the GitHub secrets with new token files.
