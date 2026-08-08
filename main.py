@@ -312,58 +312,24 @@ def generate_podcast_content(messages, config):
     logger.error("All models failed")
     return None
 
-
 def generate_audio(script, output_path, config):
     """
-    Generate audio from script using Gemini TTS.
+    Generate audio from script using edge-tts (free Microsoft TTS).
+    Returns True if successful.
     """
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    import asyncio
     
-    if not api_key:
-        logger.warning("GEMINI_API_KEY not set")
-        return False
+    voice = config.get('voice', 'fa-IR-DilaraNeural')
     
-    # Gemini TTS API
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key={api_key}"
-    
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": f"لطفاً این متن را با لحن صمیمی و حرفه‌ای بخوانید:\n\n{script}"
-            }]
-        }],
-        "generationConfig": {
-            "responseModalities": ["AUDIO"],
-            "speechConfig": {
-                "voiceConfig": {
-                    "prebuiltVoiceConfig": {
-                        "voiceName": "Aoede"
-                    }
-                }
-            }
-        }
-    }
+    async def tts():
+        import edge_tts
+        communicate = edge_tts.Communicate(script, voice)
+        await communicate.save(output_path)
     
     try:
-        resp = requests.post(url, json=payload, timeout=300)
-        data = resp.json()
-        
-        if "candidates" in data and data["candidates"]:
-            # Extract audio data
-            audio_data = data["candidates"][0]["content"]["parts"][0]
-            if "inlineData" in audio_data:
-                import base64
-                audio_bytes = base64.b64decode(audio_data["inlineData"]["data"])
-                
-                with open(output_path, "wb") as f:
-                    f.write(audio_bytes)
-                
-                logger.info(f"Audio saved: {output_path}")
-                return True
-        
-        logger.error(f"TTS error: {data}")
-        return False
-        
+        asyncio.run(tts())
+        logger.info(f"Audio saved: {output_path}")
+        return True
     except Exception as e:
         logger.error(f"TTS error: {e}")
         return False
