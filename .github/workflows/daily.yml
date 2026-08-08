@@ -8,6 +8,7 @@ on:
 jobs:
   generate-podcast:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       
@@ -20,6 +21,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          sudo apt-get install -y ffmpeg
       
       - name: Run podcast bot
         env:
@@ -27,10 +29,8 @@ jobs:
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          NOTEBOOKLM_COOKIES: ${{ secrets.NOTEBOOKLM_COOKIES }}
-          NOTEBOOKLM_CSRF: ${{ secrets.NOTEBOOKLM_CSRF }}
-          NOTEBOOKLM_SESSION_ID: ${{ secrets.NOTEBOOKLM_SESSION_ID }}
+          NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
+          NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
         run: python main.py
       
       - name: Upload podcast
@@ -40,6 +40,6 @@ jobs:
           name: podcast
           path: |
             output/*.mp3
-            output/*.txt
+            output/*.m4a
           retention-days: 7
           if-no-files-found: warn
