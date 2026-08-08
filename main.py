@@ -181,8 +181,7 @@ async def generate_podcast_with_notebooklm(messages, config, output_path):
         # Create client using from_storage
         logger.info("Creating NotebookLM client...")
         client = await NotebookLMClient.from_storage(
-            keepalive=600,  # Auto-refresh cookies every 600s
-            allow_headless=True  # Allow headless operation
+            keepalive=600
         )
         logger.info("NotebookLM client created")
         
