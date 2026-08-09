@@ -2,26 +2,25 @@ name: Daily Koohnameh Podcast
 
 on:
   schedule:
-    - cron: '30 17-23 * * *'
-    - cron: '30 0 * * *'
+    - cron: '30 5 * * *'  # Every day at 05:30 UTC (08:00 Iran)
   workflow_dispatch:
 
 jobs:
   generate-podcast:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 60
 
-      - name: Set up Python
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Refresh NotebookLM auth
         env:
@@ -41,13 +40,10 @@ jobs:
           NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
         run: python main.py
 
-      - name: Upload podcast
+      - name: Upload podcast artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: podcast
-          path: |
-            output/*.mp3
-            output/*.m4a
+          path: output/*.m4a
           retention-days: 7
-          if-no-files-found: warn

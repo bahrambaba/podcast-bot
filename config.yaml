@@ -1,70 +1,95 @@
 # Koohnameh Podcast Bot Configuration
 
-# Source channel for trigger post
-koohnameh_username: koohnameh
-
-# Fallback channel list (used only if trigger post has no parseable channels)
+# All channels to monitor (73 channels)
 channels:
-  - username: chakadclub
-    name: باشگاه کوهنوردی چکاد مشهد
-  - username: touchalclub
-    name: باشگاه توچال
-  - username: koohnavardclub
-    name: باشگاه ورزشی کوهنورد
-  - username: koohyarann
-    name: کوهیاران
-  - username: koohyad
-    name: کوهیاد
-  - username: TehranKouh
-    name: باشگاه کوهنوردی تهرانکوه
-  - username: ofogh_tehran
-    name: باشگاه کوهنوردی افق تهران
-  - username: oogh_club
-    name: باشگاه کوهنوردی اوج
-  - username: koohnameh
-    name: پایگاه خبری تحلیلی کوه نامه
-  - username: KoohGram
-    name: کوه گرام
-  - username: irmma
-    name: انجمن پزشکی کوهستان ایران
-  - username: arashclubchannel
-    name: باشگاه کوه نوردان آرش
-  - username: berimkouh
-    name: سامانه بریم کوه
-  - username: alpineclub_iran
-    name: انجمن کوه نوردان ایران
-  - username: damavand_amoozesh
-    name: دماوند آموزش
-  - username: tarnam_baran
-    name: باشگاه ورزشی ترنم باران
-  - username: ohd_khorasan
-    name: باشگاه کوهنوردی اُحُد خراسان
-  - username: tokooh
-    name: باشگاه كوهنوردى تهران
-  - username: hamnavardanepaytakht
-    name: باشگاه همنوردان پایتخت
-  - username: hamnavard
-    name: باشگاه کوهنوردی همنورد
-  - username: salamat_khorasan
-    name: باشگاه کوهنوردی سلامت خراسان
-  - username: besalabatkooh
-    name: به صلابت کوه
+  - "@avaza123"
+  - "@blueskygps"
+  - "@alpineclub_iran"
+  - "@kouheghaf"
+  - "@KoohGram"
+  - "@havashenasihashemnezhad"
+  - "@mymountains"
+  - "@ch_envir_iran"
+  - "@ngjourney"
+  - "@damavand_amoozesh"
+  - "@irancanyon"
+  - "@kolegardi"
+  - "@iran5610"
+  - "@mina_habib"
+  - "@dobisel"
+  - "@amir_saeid_ahmadi"
+  - "@advancedclimbing"
+  - "@climbingtips"
+  - "@gharibe_ir"
+  - "@karakoram"
+  - "@kouhmag"
+  - "@H_moghaddam8000"
+  - "@MMreference"
+  - "@BardiaClimbing"
+  - "@DamavandClub"
+  - "@news83kouh"
+  - "@Mang_halat"
+  - "@iclimb"
+  - "@Climbing_news"
+  - "@Mountaineering_Club_of_Iran"
+  - "@podbasecamp"
+  - "@espilat"
+  - "@irankoohestan"
+  - "@koohnevisaneiran"
+  - "@kouhyad"
+  - "@TehranKouh"
+  - "@chakadclub"
+  - "@taranomclub"
+  - "@salamatkhorasan"
+  - "@kohnavardi_Aras"
+  - "@ohodclub"
+  - "@koohnavardclub"
+  - "@koohbaad"
+  - "@oajclub"
+  - "@everest77nmm"
+  - "@evesfahan"
+  - "@EverestClubb"
+  - "@Everestclub_ir"
+  - "@ShaghayeghClub"
+  - "@tclcl"
+  - "@tochalclub"
+  - "@hamnavardanepaytakht"
+  - "@irmma"
+  - "@ofogh_tehran"
+  - "@alamkoohd"
+  - "@hamnavard_tehran"
+  - "@Alaberz"
+  - "@HTclimb"
+  - "@rock_climbers"
+  - "@tehranmountainclubb"
+  - "@arashclubchannel"
+  - "@khatol_ra_s"
+  - "@dashkoh"
+  - "@besalabatkooh"
+  - "@HamnavardanClub"
+  - "@persicatour"
+  - "@autkoohsaran"
+  - "@sutmcg"
+  - "@fatehan_club"
+  - "@berimkouh"
+  - "@kouhyaran"
+  - "@koohnameh"
+  - "@mmreference"
 
-# Content filtering
+# Filters
 filters:
   exclude_keywords:
-    - کلاس
-    - دوره
-    - آموزش
-    - ثبت نام
-    - هزینه
-    - شهریه
-    - تور
-    - سفر
-    - طبیعت گردی
-    - گردشگری
-    - ساعت
-    - مکان
-    - محل تجمع
-  # Minimum message text length to include
+    - "کلاس"
+    - "دوره"
+    - "آموزش"
+    - "ثبت نام"
+    - "هزینه"
+    - "شهریه"
+    - "تور"
+    - "سفر"
+    - "طبیعت گردی"
+    - "گردشگری"
+    - "ساعت"
+    - "مکان"
+    - "محل تجمع"
   min_caption_length: 50
