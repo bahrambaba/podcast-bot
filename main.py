@@ -28,6 +28,8 @@ MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 SAMPLE_RATE = 24000
 VOICE_FARID = "Sulafat"    # Warm male
 VOICE_DILARA = "Aoede"      # Breezy female
+SPEAKER_MALE = "فرشید"
+SPEAKER_FEMALE = "پریسا"
 
 
 def load_config():
@@ -142,12 +144,12 @@ def generate_podcast_script(source_text, podcast_date):
     prompt = f"""تو نویسنده حرفه‌ای پادکست هستی. متن اخبار زیر را به یک دیالوگ پادکست بلند تبدیل کن.
 
 قوانین:
-- دو مجری صحبت می‌کنند: فرید (مذکر) و دیلارا (مونث)
+- دو مجری صحبت می‌کنند: {SPEAKER_MALE} (مذکر) و {SPEAKER_FEMALE} (مونث)
 - لحن گرم و صمیمی، انرژی‌بخش، مثل یک برنامه صبحگاهی
 - شروع دقیقاً با:
-فرید: سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
-دیلارا: امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز در فضای مجازی منتشر شده در خدمتتون هستیم.
-فرید: خوب بریم با هم مروری داشته باشیم بر روی مطالب کانال‌های فعال دیروز.
+{SPEAKER_MALE}: سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
+{SPEAKER_FEMALE}: امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز در فضای مجازی منتشر شده در خدمتتون هستیم.
+{SPEAKER_MALE}: خوب بریم با هم مروری داشته باشیم بر روی مطالب کانال‌های فعال دیروز.
 
 - بعد از معرفی، اخبار را به ترتیب روایت کن. هر خبر را یکی از مجری‌ها می‌گوید و دیگری کامنت کوتاه می‌گذارد.
 - اخبار را با کلمات خودت و لحن صمیمی روایت کن، نه کپی متن.
@@ -155,12 +157,12 @@ def generate_podcast_script(source_text, podcast_date):
 - برای هر خبر حداقل ۳-۴ جمله صحبت کنید.
 - حداقل ۲۰ خط دیالوگ تولید کن.
 - در انتها:
-فرید: امیدوارم از شنیدن این پادکست لذت برده باشید.
-دیلارا: هر روز منتظر انتشار پادکست‌های صوتی روزانه از وبسایت تحلیلی خبری کوهنامه باشید.
-فرید: تا پادکست بعدی، خدا نگهدارتون باشه.
+{SPEAKER_MALE}: امیدوارم از شنیدن این پادکست لذت برده باشید.
+{SPEAKER_FEMALE}: هر روز منتظر انتشار پادکست‌های صوتی روزانه از وبسایت تحلیلی خبری کوهنامه باشید.
+{SPEAKER_MALE}: تا پادکست بعدی، خدا نگهدارتون باشه.
 
 - فقط دیالوگ خروجی بده، هیچ توضیح اضافه نده.
-- هر خط با اسم مجری شروع شود: فرید: ... یا دیلارا: ...
+- هر خط با اسم مجری شروع شود: {SPEAKER_MALE}: ... یا {SPEAKER_FEMALE}: ...
 
 متن اخبار:
 {source_text}
@@ -183,7 +185,7 @@ def generate_podcast_script(source_text, podcast_date):
 # Render script to audio via Gemini Live API (native audio dialog)
 # =============================================================================
 
-async def render_podcast_audio(script, output_path):
+async def render_podcast_audio(script, output_path, corrections=None):
     """Send each script turn to Gemini Live API and collect PCM audio."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
@@ -193,11 +195,17 @@ async def render_podcast_audio(script, output_path):
     lines = [l.strip() for l in script.strip().split("\n") if l.strip()]
     turns = []
     for line in lines:
-        match = re.match(r"^(فرید|دیلارا)\s*:\s*(.*)", line)
+        match = re.match(rf"^({SPEAKER_MALE}|{SPEAKER_FEMALE})\s*:\s*(.*)", line)
         if not match:
             continue
         speaker, text = match.groups()
-        voice = VOICE_FARID if speaker == "فرید" else VOICE_DILARA
+        voice = VOICE_FARID if speaker == SPEAKER_MALE else VOICE_DILARA
+
+        # Apply pronunciation corrections
+        if corrections:
+            for wrong, right in corrections.items():
+                text = text.replace(wrong, right)
+
         turns.append((speaker, text, voice))
 
     logger.info(f"Rendering {len(turns)} turns via Gemini Live API...")
@@ -371,7 +379,8 @@ async def async_main():
         date_slug = podcast_date.replace(" ", "_")
         output_path = f"output/podcast_{date_slug}.wav"
         logger.info("Rendering podcast audio via Gemini Live API...")
-        success = await render_podcast_audio(script, output_path)
+        success = await render_podcast_audio(script, output_path,
+            corrections=config.get("pronunciation_corrections", {}))
 
         if not success:
             logger.error("Audio generation failed!")

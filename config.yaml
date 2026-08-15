@@ -93,3 +93,12 @@ filters:
     - "مکان"
     - "محل تجمع"
   min_caption_length: 50
+
+# Pronunciation corrections: wrong → right (applied before audio generation)
+# Add proper nouns, place names, etc. that Gemini mispronounces
+pronunciation_corrections:
+  "علم کوه": "عَلم‌کوه"
+  "دماوند": "دِماوند"
+  "توچال": "تِوچال"
+  "بافق": "بافِت"
+  "المپ": "اُلِمپ"
