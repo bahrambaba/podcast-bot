@@ -207,68 +207,64 @@ async def render_podcast_audio(script, output_path):
     for i, (speaker, text, voice) in enumerate(turns):
         logger.info(f"Turn {i+1}/{len(turns)}: {speaker}: {text[:60]}...")
 
-        client = genai.Client(api_key=api_key)
-        config = types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
-            output_audio_transcription=types.AudioTranscriptionConfig(),
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name=voice
-                    )
-                )
-            ),
-            system_instruction=(
-                f"You are {speaker}. Speak in natural contemporary Iranian Persian. "
-                "Deliver the text as warm, natural human speech. "
-                "Say each sentence once at a comfortable pace."
-            ),
-            temperature=0.7,
-        )
-
         try:
-            session = client.aio.live.connect(model=MODEL, config=config)
-            await session.__aenter__()
-
-            prompt = (
-                "Perform only the exact text inside <READ>. Preserve every word, but deliver "
-                "it as warm, natural human speech with varied emphasis, comfortable phrasing, "
-                "and unhurried articulation. Say each sentence once. Stop immediately after the "
-                f"final word and produce only audible speech.\n\n<READ>\n{text}\n</READ>"
+            client = genai.Client(api_key=api_key)
+            config = types.LiveConnectConfig(
+                response_modalities=["AUDIO"],
+                output_audio_transcription=types.AudioTranscriptionConfig(),
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice
+                        )
+                    )
+                ),
+                system_instruction=(
+                    f"You are {speaker}. Speak in natural contemporary Iranian Persian. "
+                    "Deliver the text as warm, natural human speech. "
+                    "Say each sentence once at a comfortable pace."
+                ),
+                temperature=0.7,
             )
 
-            await session.send_client_content(
-                turns=[{"role": "user", "parts": [{"text": prompt}]}]
-            )
+            async with client.aio.live.connect(model=MODEL, config=config) as session:
+                prompt = (
+                    "Perform only the exact text inside <READ>. Preserve every word, but deliver "
+                    "it as warm, natural human speech with varied emphasis, comfortable phrasing, "
+                    "and unhurried articulation. Say each sentence once. Stop immediately after the "
+                    f"final word and produce only audible speech.\n\n<READ>\n{text}\n</READ>"
+                )
 
-            pcm = bytearray()
-            async for message in session.receive():
-                # Extract audio
-                server_content = getattr(message, "server_content", None)
-                model_turn = getattr(server_content, "model_turn", None) if server_content else None
-                for part in getattr(model_turn, "parts", None) or []:
-                    inline = getattr(part, "inline_data", None)
-                    data = getattr(inline, "data", None) if inline else None
-                    if data:
-                        pcm.extend(data)
+                await session.send_client_content(
+                    turns=[{"role": "user", "parts": [{"text": prompt}]}]
+                )
 
-                # Also check direct data attribute
-                if not pcm and getattr(message, "data", None):
-                    pcm.extend(message.data)
+                pcm = bytearray()
+                async for message in session.receive():
+                    # Extract audio
+                    server_content = getattr(message, "server_content", None)
+                    model_turn = getattr(server_content, "model_turn", None) if server_content else None
+                    for part in getattr(model_turn, "parts", None) or []:
+                        inline = getattr(part, "inline_data", None)
+                        data = getattr(inline, "data", None) if inline else None
+                        if data:
+                            pcm.extend(data)
 
-                if server_content and (
-                    getattr(server_content, "turn_complete", False)
-                    or getattr(server_content, "generation_complete", False)
-                ):
-                    break
+                    # Also check direct data attribute
+                    if not pcm and getattr(message, "data", None):
+                        pcm.extend(message.data)
 
-            if pcm:
-                all_pcm.extend(pcm)
-                logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
-            else:
-                logger.warning(f"  No audio for turn {i+1}")
+                    if server_content and (
+                        getattr(server_content, "turn_complete", False)
+                        or getattr(server_content, "generation_complete", False)
+                    ):
+                        break
 
-            await session.__aexit__(None, None, None)
+                if pcm:
+                    all_pcm.extend(pcm)
+                    logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
+                else:
+                    logger.warning(f"  No audio for turn {i+1}")
 
         except Exception as e:
             logger.error(f"Error on turn {i+1}: {e}")
