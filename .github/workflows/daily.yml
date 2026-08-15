@@ -36,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: podcast
-          path: output/*.mp3
+          path: output/*.wav
           retention-days: 7
