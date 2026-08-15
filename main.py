@@ -168,17 +168,28 @@ def generate_podcast_script(source_text, podcast_date):
 {source_text}
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
-            temperature=0.7,
-        ),
-    )
-    script = response.text
-    logger.info(f"Script generated: {len(script)} chars, {len(script.splitlines())} lines")
-    return script
+    # Retry with backoff for 503/overload errors
+    import time
+    for attempt in range(5):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
+                    temperature=0.7,
+                ),
+            )
+            script = response.text
+            logger.info(f"Script generated: {len(script)} chars, {len(script.splitlines())} lines")
+            return script
+        except Exception as e:
+            wait = 30 * (attempt + 1)
+            logger.warning(f"Script generation attempt {attempt+1}/5 failed: {e}. Retrying in {wait}s...")
+            time.sleep(wait)
+
+    logger.error("Script generation failed after 5 attempts!")
+    return None
 
 
 # =============================================================================
