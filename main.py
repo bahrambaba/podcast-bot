@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 """
-Koohnameh Podcast Bot v3
-Every day at 8 AM Iran time: check all channels, filter, generate Persian podcast via NotebookLM.
+Koohnameh Podcast Bot v4
+Gemini API for script generation + edge-tts for Persian voice synthesis.
+No NotebookLM, no cookie expiry, no browser auth.
 """
 
-import requests
+import asyncio
 import json
 import os
+import re
 import yaml
 import logging
-import asyncio
+import requests
 from datetime import datetime, timedelta
 import jdatetime
+import edge_tts
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-JALALI_MONTHS = [
-    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-]
+JALALI_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+                 "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 
 
 def load_config():
@@ -33,7 +34,6 @@ def load_config():
 
 async def fetch_messages_from_channel(client, channel_username, since_date):
     from telethon import errors
-
     messages = []
     try:
         entity = await client.get_entity(channel_username)
@@ -70,29 +70,112 @@ def filter_messages(messages, config):
     filters = config.get("filters", {})
     exclude_keywords = filters.get("exclude_keywords", [])
     min_caption_length = filters.get("min_caption_length", 50)
-
     filtered = []
-    seen_texts = set()  # Deduplicate
-
+    seen_texts = set()
     for msg in messages:
         text = msg.get("text", "").strip()
         if not text or len(text) < min_caption_length:
             continue
-        if any(keyword in text for keyword in exclude_keywords):
+        if any(kw in text for kw in exclude_keywords):
             continue
         if msg.get("has_media") and not msg.get("has_text"):
             continue
-
-        # Deduplicate by first 100 chars
-        text_key = text[:100]
-        if text_key in seen_texts:
+        key = text[:100]
+        if key in seen_texts:
             continue
-        seen_texts.add(text_key)
-
+        seen_texts.add(key)
         filtered.append(msg)
-
     logger.info(f"Filtered {len(messages)} -> {len(filtered)} messages (deduped)")
     return filtered
+
+
+# =============================================================================
+# Generate podcast script via Gemini API
+# =============================================================================
+
+def generate_podcast_script(source_text, podcast_date):
+    """Use Gemini to turn raw news text into a podcast dialogue script."""
+    from google import genai
+    from google.genai import types
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        logger.error("GEMINI_API_KEY not set!")
+        return None
+
+    client = genai.Client(api_key=api_key)
+
+    prompt = f"""تو نویسنده حرفه‌ای پادکست هستی. متن اخبار زیر را به یک دیالوگ پادکست تبدیل کن.
+
+قوانین:
+- دو مجری صحبت می‌کنند: فرید (مذکر) و دیلارا (مونث)
+- لحن گرم و صمیمی، انرژی‌بخش، مثل یک برنامه صبحگاهی
+- شروع دقیقاً با:
+فرید: سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
+دیلارا: امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز در فضای مجازی منتشر شده در خدمتتون هستیم.
+فرید: خوب بریم با هم مروری داشته باشیم بر روی مطالب کانال‌های فعال دیروز.
+
+- بعد از معرفی، اخبار را به ترتیب روایت کن. هر خبر را یکی از مجری‌ها می‌گوید و دیگری کامنت کوتاه می‌گذارد.
+- اخبار را با کلمات خودت و لحن صمیمی روایت کن، نه کپی متن.
+- در انتها:
+فرید: امیدوارم از شنیدن این پادکست لذت برده باشید.
+دیلارا: هر روز منتظر انتشار پادکست‌های صوتی روزانه از وبسایت تحلیلی خبری کوهنامه باشید.
+فرید: تا پادکست بعدی، خدا نگهدارتون باشه.
+
+- فقط دیالوگ خروجی بده، هیچ توضیح اضافه نده.
+- هر خط با اسم مجری شروع شود: فرید: ... یا دیلارا: ...
+
+متن اخبار:
+{source_text}
+"""
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
+            temperature=0.7,
+        ),
+    )
+    script = response.text
+    logger.info(f"Script generated: {len(script)} chars")
+    return script
+
+
+# =============================================================================
+# Render script to audio via edge-tts
+# =============================================================================
+
+async def render_podcast_audio(script, output_path):
+    """Parse script lines and render each speaker with edge-tts."""
+    VOICE_FARID = "fa-IR-FaridNeural"
+    VOICE_DILARA = "fa-IR-DilaraNeural"
+
+    lines = [l.strip() for l in script.strip().split("\n") if l.strip()]
+    audio_chunks = []
+
+    for line in lines:
+        match = re.match(r"^(فرید|دیلارا)\s*:\s*(.*)", line)
+        if not match:
+            continue
+        speaker, text = match.groups()
+        voice = VOICE_FARID if speaker == "فرید" else VOICE_DILARA
+        # render to temp mp3
+        tmp_path = f"output/_chunk_{len(audio_chunks)}.mp3"
+        comm = edge_tts.Communicate(text, voice, rate="+0%", pitch="+0Hz")
+        await comm.save(tmp_path)
+        audio_chunks.append(tmp_path)
+        logger.info(f"Rendered {speaker}: {text[:60]}...")
+
+    # Concatenate all chunks
+    with open(output_path, "wb") as out:
+        for chunk_path in audio_chunks:
+            with open(chunk_path, "rb") as c:
+                out.write(c.read())
+            os.remove(chunk_path)
+
+    logger.info(f"Podcast saved: {output_path} ({len(audio_chunks)} segments)")
+    return True
 
 
 # =============================================================================
@@ -100,121 +183,27 @@ def filter_messages(messages, config):
 # =============================================================================
 
 def build_source_text(filtered_messages):
-    """Build structured source text for NotebookLM."""
+    """Build raw news text from filtered messages."""
     today_jalali = jdatetime.datetime.now()
     yesterday_jalali = today_jalali - jdatetime.timedelta(days=1)
     yesterday_date = f"{yesterday_jalali.day} {JALALI_MONTHS[yesterday_jalali.month - 1]} {yesterday_jalali.year}"
     podcast_date = f"{today_jalali.day} {JALALI_MONTHS[today_jalali.month - 1]} {today_jalali.year}"
 
-    # Group messages by channel
     channels = {}
     for msg in filtered_messages:
         ch = msg.get("channel", "نامشخص")
-        if ch not in channels:
-            channels[ch] = []
-        channels[ch].append(msg.get("text", "")[:500])
+        channels.setdefault(ch, []).append(msg.get("text", "")[:500])
 
     total_msgs = len(filtered_messages)
     active_channels = len(channels)
 
-    # Intro
-    intro = f"""سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
-امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز ({yesterday_date}) در فضای مجازی منتشر شده در خدمتتون هستیم.
-خوب بریم با هم مروری داشته باشیم بر روی مطالب کانال‌های فعال دیروز."""
-
-    # Stats
-    stats = f"\n\nآمار کلی: {total_msgs} پیام از {active_channels} کانال فعال"
-
-    # Content
-    content = "\n\nمحتوای خبری:\n"
+    text_parts = [f"آمار: {total_msgs} پیام از {active_channels} کانال فعال.\n"]
     for ch_name, msgs in channels.items():
-        content += f"\nکانال {ch_name}:\n"
+        text_parts.append(f"\nکانال @{ch_name}:")
         for m in msgs[:5]:
-            content += f"- {m}\n"
+            text_parts.append(f"- {m}")
 
-    # Outro
-    outro = """
-
-امیدوارم از شنیدن این پادکست لذت برده باشید.
-هر روز منتظر انتشار پادکست‌های صوتی روزانه از وبسایت تحلیلی خبری کوهنامه باشید.
-تا پادکست بعدی، خدا نگهدارتون باشه."""
-
-    source_text = intro + stats + content + outro
-    return source_text, podcast_date, total_msgs, active_channels
-
-
-# =============================================================================
-# NotebookLM podcast generation
-# =============================================================================
-
-async def generate_podcast(source_text, date_str, output_path):
-    from notebooklm import NotebookLMClient
-    from notebooklm.exceptions import RateLimitError
-
-    auth_json = os.environ.get("NOTEBOOKLM_AUTH_JSON", "")
-    if not auth_json:
-        logger.error("NOTEBOOKLM_AUTH_JSON not set!")
-        return False
-
-    profile_dir = os.path.expanduser("~/.notebooklm/profiles/default")
-    os.makedirs(profile_dir, exist_ok=True)
-
-    storage_path = os.path.join(profile_dir, "storage_state.json")
-    with open(storage_path, "w") as f:
-        f.write(auth_json)
-    os.chmod(storage_path, 0o600)
-
-    master_token = os.environ.get("NOTEBOOKLM_MASTER_TOKEN", "")
-    if master_token:
-        token_path = os.path.join(profile_dir, "master_token.json")
-        with open(token_path, "w") as f:
-            f.write(master_token)
-        os.chmod(token_path, 0o600)
-
-    try:
-        async with NotebookLMClient.from_storage(keepalive=600) as client:
-            logger.info("NotebookLM client created")
-
-            nb = await client.notebooks.create(title=f"پادکست کوهنامه {date_str}")
-            logger.info(f"Notebook created: {nb.id}")
-
-            await client.sources.add_text(nb.id, f"اخبار کوهنوردی {date_str}", source_text)
-            logger.info("Source added")
-
-            status = await client.artifacts.generate_audio(
-                nb.id,
-                language="fa",
-                instructions=(
-                    "این یک پادکست خبری فارسی درباره اخبار کوهنوردی و طبیعت ایران است. "
-                    "دو نفر درباره اخبار کوهنوردی دیروز صحبت می‌کنند. "
-                    "لطفاً به فارسی صحبت کنید."
-                ),
-            )
-            logger.info(f"Audio generation started: task_id={status.task_id}")
-
-            logger.info("Waiting for audio generation (up to 20 min)...")
-            await client.artifacts.wait_for_completion(nb.id, status.task_id, timeout=1200)
-            logger.info("Audio generation completed!")
-
-            result = await client.artifacts.download_audio(nb.id, output_path)
-            logger.info(f"Podcast saved: {result}")
-
-            try:
-                await client.notebooks.delete(nb.id)
-                logger.info("Notebook deleted (cleanup)")
-            except Exception as e:
-                logger.warning(f"Could not delete notebook: {e}")
-
-        return True
-
-    except RateLimitError:
-        logger.error("Rate limited by NotebookLM. Will retry tomorrow.")
-        return False
-    except Exception as e:
-        logger.error(f"NotebookLM error: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return False
+    return "\n".join(text_parts), podcast_date, total_msgs, active_channels
 
 
 # =============================================================================
@@ -240,9 +229,8 @@ def send_to_telegram(audio_path, caption):
         if resp.status_code == 200:
             logger.info("Audio sent to Telegram successfully")
             return True
-        else:
-            logger.error(f"Telegram error: {resp.text}")
-            return False
+        logger.error(f"Telegram error: {resp.text}")
+        return False
 
 
 # =============================================================================
@@ -252,7 +240,6 @@ def send_to_telegram(audio_path, caption):
 async def async_main():
     config = load_config()
     channels = config.get("channels", [])
-
     if not channels:
         logger.error("No channels configured!")
         return
@@ -264,24 +251,17 @@ async def async_main():
         return
 
     from telethon import TelegramClient
-
     client = TelegramClient("bot_session", api_id, api_hash)
     await client.start()
-
     try:
-        # Fetch messages from all channels (last 24h)
         logger.info(f"Fetching messages from {len(channels)} channels...")
         since_date = (datetime.utcnow() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-
         messages = []
         for ch in channels:
-            username = ch if isinstance(ch, str) else ch.get("username", "")
-            if username.startswith("@"):
-                username = username[1:]
+            username = ch.lstrip("@") if isinstance(ch, str) else ch.get("username", "").lstrip("@")
             msgs = await fetch_messages_from_channel(client, username, since_date)
             messages.extend(msgs)
-            await asyncio.sleep(1)  # Rate limit respect
-
+            await asyncio.sleep(1)
         await client.disconnect()
         logger.info(f"Total messages fetched: {len(messages)}")
 
@@ -289,34 +269,34 @@ async def async_main():
             logger.warning("No messages found. Nothing to podcast.")
             return
 
-        # Filter
-        logger.info("Filtering messages...")
         filtered = filter_messages(messages, config)
         if not filtered:
             logger.warning("No messages after filtering.")
             return
 
-        # Build source text
         source_text, podcast_date, total_msgs, active_channels = build_source_text(filtered)
         logger.info(f"Source text built: {total_msgs} msgs from {active_channels} channels, date={podcast_date}")
 
-        # Generate podcast
-        logger.info("Generating podcast with NotebookLM...")
-        os.makedirs("output", exist_ok=True)
-        date_slug = podcast_date.replace(" ", "_")
-        output_path = f"output/podcast_{date_slug}.m4a"
-
-        success = await generate_podcast(source_text, podcast_date, output_path)
-        if not success:
-            logger.error("Podcast generation failed!")
+        # Step 1: Gemini generates podcast script
+        logger.info("Generating podcast script via Gemini API...")
+        script = generate_podcast_script(source_text, podcast_date)
+        if not script:
+            logger.error("Script generation failed!")
             return
 
-        # Send to Telegram
-        logger.info("Sending to Telegram...")
-        caption = f"🎙️ پادکست کوهنامه\nتاریخ: {podcast_date}\nتعداد پیام‌ها: {total_msgs} | کانال‌ها: {active_channels}"
-        send_to_telegram(output_path, caption)
+        # Step 2: edge-tts renders audio
+        os.makedirs("output", exist_ok=True)
+        date_slug = podcast_date.replace(" ", "_")
+        output_path = f"output/podcast_{date_slug}.mp3"
+        logger.info("Rendering podcast audio via edge-tts...")
+        await render_podcast_audio(script, output_path)
 
+        # Step 3: Send to Telegram
+        logger.info("Sending to Telegram...")
+        caption = f"🎙️ پادکست کوهنامه\n📅 {podcast_date}\n📊 {total_msgs} پیام از {active_channels} کانال"
+        send_to_telegram(output_path, caption)
         logger.info("Done!")
+
 
     except Exception as e:
         logger.error(f"Fatal error: {e}")
@@ -329,7 +309,7 @@ async def async_main():
 
 
 def main():
-    logger.info("Starting Koohnameh Podcast Bot v3...")
+    logger.info("Starting Koohnameh Podcast Bot v4 (Gemini + edge-tts)...")
     asyncio.run(async_main())
 
 

@@ -8,7 +8,7 @@ on:
 jobs:
   generate-podcast:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repo
@@ -22,22 +22,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Refresh NotebookLM auth
-        env:
-          NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
-        run: |
-          mkdir -p ~/.notebooklm/profiles/default
-          printenv NOTEBOOKLM_MASTER_TOKEN > ~/.notebooklm/profiles/default/master_token.json
-          python -m notebooklm login --master-token-refresh
-
       - name: Run podcast bot
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
-          NOTEBOOKLM_MASTER_TOKEN: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
 
       - name: Upload podcast artifact
@@ -45,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: podcast
-          path: output/*.m4a
+          path: output/*.mp3
           retention-days: 7
