@@ -26,7 +26,7 @@ JALALI_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "
 
 MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 SAMPLE_RATE = 24000
-VOICE_FARID = "Sulafat"    # Warm male
+VOICE_FARID = "Charon"       # Informative male
 VOICE_DILARA = "Aoede"      # Breezy female
 SPEAKER_MALE = "فرشید"
 SPEAKER_FEMALE = "پریسا"
