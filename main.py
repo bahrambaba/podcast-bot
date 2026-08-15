@@ -133,7 +133,7 @@ def generate_podcast_script(source_text, podcast_date):
 """
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.0-flash-lite",
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
