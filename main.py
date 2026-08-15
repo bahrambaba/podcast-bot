@@ -55,6 +55,9 @@ async def fetch_messages_from_channel(client, channel_username, since_date):
     except errors.ChannelPrivateError:
         logger.warning(f"Channel is private: @{channel_username}")
     except errors.FloodWaitError as e:
+        if e.seconds > 300:
+            logger.warning(f"Flood wait {e.seconds}s too long for @{channel_username}, skipping")
+            return messages
         logger.warning(f"Flood wait for @{channel_username}: {e.seconds}s")
         await asyncio.sleep(e.seconds)
     except Exception as e:
@@ -261,7 +264,7 @@ async def async_main():
             username = ch.lstrip("@") if isinstance(ch, str) else ch.get("username", "").lstrip("@")
             msgs = await fetch_messages_from_channel(client, username, since_date)
             messages.extend(msgs)
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)  # Rate limit respect
         await client.disconnect()
         logger.info(f"Total messages fetched: {len(messages)}")
 
