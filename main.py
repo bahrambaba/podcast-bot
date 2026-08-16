@@ -212,9 +212,9 @@ async def render_podcast_audio(script, output_path, corrections=None):
         speaker, text = match.groups()
         voice = VOICE_FARID if speaker == SPEAKER_MALE else VOICE_DILARA
 
-        # Apply pronunciation corrections
+        # Apply pronunciation corrections (longest first to avoid partial matches)
         if corrections:
-            for wrong, right in corrections.items():
+            for wrong, right in sorted(corrections.items(), key=lambda x: len(x[0]), reverse=True):
                 text = text.replace(wrong, right)
 
         turns.append((speaker, text, voice))
