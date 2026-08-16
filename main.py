@@ -311,7 +311,7 @@ async def render_podcast_audio(script, output_path, corrections=None):
 # Send to Telegram
 # =============================================================================
 
-def send_to_telegram(audio_path, caption):
+def send_to_telegram(audio_path, title, caption):
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not bot_token or not chat_id:
@@ -323,7 +323,7 @@ def send_to_telegram(audio_path, caption):
         data = {
             "chat_id": chat_id,
             "caption": caption[:1024],
-            "title": "پادکست کوهنامه",
+            "title": title,
             "performer": "کوهنامه",
         }
         resp = requests.post(url, files=files, data=data)
@@ -399,8 +399,18 @@ async def async_main():
 
         # Step 3: Send to Telegram
         logger.info("Sending to Telegram...")
-        caption = f"🎙️ پادکست کوهنامه\n📅 {podcast_date}\n📊 {total_msgs} پیام از {active_channels} کانال"
-        send_to_telegram(output_path, caption)
+        title = f"پادکست کوهنامه {podcast_date}"
+        caption = (
+            f"🎙 پادکست روز \"{podcast_date}\" کوهنامه -تهیه شده توسط هوش مصنوعی "
+            f"( توجه: ایرادات، تلفظ اسامی و  تلفظ نام ها خطای ذاتی هوش مصنوعی است "
+            f"و کوهنامه نقشی در آن ندارد.) این پادکست به صورت روزانه از بین کانال های فعال تلگرامی تهیه می شود.\n"
+            f"📅 {podcast_date}\n"
+            f"────────────\n"
+            f"🌐 کوهنامه | اخبار کوهنوردی\n"
+            f"📍 www.koohnameh.ir\n"
+            f"📢 @koohnameh"
+        )
+        send_to_telegram(output_path, title, caption)
         logger.info("Done!")
 
     except Exception as e:
