@@ -94,6 +94,11 @@ filters:
     - "محل تجمع"
   min_caption_length: 50
 
+# Priority channels — content always included, extra focus in script
+priority_channels:
+  - "@koohnameh"
+  - "@kooh_nameh_ir"
+
 # Pronunciation corrections: wrong → right (applied before audio generation)
 # Add proper nouns, place names, etc. that Gemini mispronounces
 pronunciation_corrections:

@@ -82,16 +82,23 @@ def filter_messages(messages, config):
     filters = config.get("filters", {})
     exclude_keywords = filters.get("exclude_keywords", [])
     min_caption_length = filters.get("min_caption_length", 50)
+    priority_channels = set(config.get("priority_channels", []))
     filtered = []
     seen_texts = set()
     for msg in messages:
+        channel = msg.get("channel", "")
+        is_priority = channel in priority_channels
         text = msg.get("text", "").strip()
-        if not text or len(text) < min_caption_length:
+        if not text:
             continue
-        if any(kw in text for kw in exclude_keywords):
-            continue
-        if msg.get("has_media") and not msg.get("has_text"):
-            continue
+        # Priority channels bypass min length and media filters
+        if not is_priority:
+            if len(text) < min_caption_length:
+                continue
+            if any(kw in text for kw in exclude_keywords):
+                continue
+            if msg.get("has_media") and not msg.get("has_text"):
+                continue
         key = text[:100]
         if key in seen_texts:
             continue
@@ -105,12 +112,13 @@ def filter_messages(messages, config):
 # Build source text
 # =============================================================================
 
-def build_source_text(filtered_messages):
+def build_source_text(filtered_messages, priority_channels=None):
     today_jalali = jdatetime.datetime.now()
     yesterday_jalali = today_jalali - jdatetime.timedelta(days=1)
     yesterday_date = f"{yesterday_jalali.day} {JALALI_MONTHS[yesterday_jalali.month - 1]} {yesterday_jalali.year}"
     podcast_date = f"{today_jalali.day} {JALALI_MONTHS[today_jalali.month - 1]} {today_jalali.year}"
 
+    priority = set(priority_channels or [])
     channels = {}
     for msg in filtered_messages:
         ch = msg.get("channel", "نامشخص")
@@ -121,7 +129,8 @@ def build_source_text(filtered_messages):
 
     text_parts = [f"آمار: {total_msgs} پیام از {active_channels} کانال فعال.\n"]
     for ch_name, msgs in channels.items():
-        text_parts.append(f"\nکانال @{ch_name}:")
+        tag = " ⭐ اولویت" if f"@{ch_name}" in priority else ""
+        text_parts.append(f"\nکانال @{ch_name}{tag}:")
         for m in msgs[:5]:
             text_parts.append(f"- {m}")
 
@@ -146,6 +155,7 @@ def generate_podcast_script(source_text, podcast_date):
 قوانین:
 - دو مجری صحبت می‌کنند: {SPEAKER_MALE} (مذکر) و {SPEAKER_FEMALE} (مونث)
 - لحن گرم و صمیمی، انرژی‌بخش، مثل یک برنامه صبحگاهی
+- کانال‌هایی که نشان ⭐ اولویت دارند حتماً و با جزئیات بیشتر پوشش داده شوند.
 - شروع دقیقاً با:
 {SPEAKER_MALE}: سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
 {SPEAKER_FEMALE}: امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز در فضای مجازی منتشر شده در خدمتتون هستیم.
@@ -376,7 +386,8 @@ async def async_main():
             logger.warning("No messages after filtering.")
             return
 
-        source_text, podcast_date, total_msgs, active_channels = build_source_text(filtered)
+        source_text, podcast_date, total_msgs, active_channels = build_source_text(
+            filtered, priority_channels=config.get("priority_channels", []))
         logger.info(f"Source text built: {total_msgs} msgs from {active_channels} channels, date={podcast_date}")
 
         # Step 1: Gemini generates podcast script
