@@ -357,7 +357,7 @@ async def async_main():
     await client.start(bot_token=bot_token)
     try:
         logger.info(f"Fetching messages from {len(channels)} channels...")
-        since_date = (datetime.utcnow() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        since_date = datetime.utcnow() - timedelta(hours=24)
         messages = []
         for ch in channels:
             username = ch.lstrip("@") if isinstance(ch, str) else ch.get("username", "").lstrip("@")
