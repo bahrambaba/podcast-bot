@@ -97,7 +97,6 @@ filters:
 # Priority channels — content always included, extra focus in script
 priority_channels:
   - "@koohnameh"
-  - "@kooh_nameh_ir"
   - "@kouheghaf"
   - "@havashenasihashemnezhad"
   - "@Climbing_news"
@@ -702,4 +701,5 @@ pronunciation_corrections:
   "ترکیب": "تَرْکیب"
   "پایتخت": "پایْتَخْت"
   "مسکن": "مُسَکِّن"
+  "برجسته": "بَرْجِستِه"
   
