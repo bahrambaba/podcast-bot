@@ -98,6 +98,11 @@ filters:
 priority_channels:
   - "@koohnameh"
   - "@kooh_nameh_ir"
+  - "@kouheghaf"
+  - "@havashenasihashemnezhad"
+  - "@Climbing_news"
+  - "@podbasecamp"
+  - "@Mang_halat"
 
 # Pronunciation corrections: wrong → right (applied before audio generation)
 # Add proper nouns, place names, etc. that Gemini mispronounces
