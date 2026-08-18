@@ -2,7 +2,7 @@ name: Daily Koohnameh Podcast
 
 on:
   schedule:
-    - cron: '30 4 * * *'  # Every day at 04:30 UTC (08:00 Iran)
+    - cron: '00 3 * * *'  # Every day at 03:00 UTC (07:00 Iran)
   workflow_dispatch:
 
 jobs:
