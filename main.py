@@ -112,13 +112,14 @@ def filter_messages(messages, config):
 # Build source text
 # =============================================================================
 
-def build_source_text(filtered_messages, priority_channels=None):
+def build_source_text(filtered_messages, priority_channels=None, channel_names=None):
     today_jalali = jdatetime.datetime.now()
     yesterday_jalali = today_jalali - jdatetime.timedelta(days=1)
     yesterday_date = f"{yesterday_jalali.day} {JALALI_MONTHS[yesterday_jalali.month - 1]} {yesterday_jalali.year}"
     podcast_date = f"{today_jalali.day} {JALALI_MONTHS[today_jalali.month - 1]} {today_jalali.year}"
 
     priority = set(priority_channels or [])
+    names = channel_names or {}
     channels = {}
     for msg in filtered_messages:
         ch = msg.get("channel", "نامشخص")
@@ -129,8 +130,9 @@ def build_source_text(filtered_messages, priority_channels=None):
 
     text_parts = [f"آمار: {total_msgs} پیام از {active_channels} کانال فعال.\n"]
     for ch_name, msgs in channels.items():
+        friendly = names.get(f"@{ch_name}", ch_name)
         tag = " ⭐ اولویت" if f"@{ch_name}" in priority else ""
-        text_parts.append(f"\nکانال @{ch_name}{tag}:")
+        text_parts.append(f"\nکانال {friendly}{tag}:")
         for m in msgs[:5]:
             text_parts.append(f"- {m}")
 
@@ -411,7 +413,8 @@ async def async_main():
             return
 
         source_text, podcast_date, total_msgs, active_channels = build_source_text(
-            filtered, priority_channels=config.get("priority_channels", []))
+            filtered, priority_channels=config.get("priority_channels", []),
+            channel_names=config.get("channel_names", {}))
         logger.info(f"Source text built: {total_msgs} msgs from {active_channels} channels, date={podcast_date}")
 
         # Step 1: Gemini generates podcast script

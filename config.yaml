@@ -116,6 +116,34 @@ priority_channels:
   - "@podbasecamp"
   - "@Mang_halat"
 
+# Friendly names for channels (shown in podcast instead of @username)
+channel_names:
+  "@news83kouh": "کانال کلاغ‌ها"
+  "@Climbing_news": "کانال فدراسیون کوهنوردی و صعودهای ورزشی"
+  "@Mang_halat": "کانال منگه‌حلقه"
+  "@kouheghaf": "کانال کوه‌قاف"
+  "@havashenasihashemnezhad": "کانال هواشناسی هاشم‌نژاد"
+  "@podbasecamp": "کانال پادکست بیس‌کمپ"
+  "@koohnameh": "کانال کوهنامه"
+  "@DamavandClub": "باشگاه دماوند"
+  "@tochalclub": "باشگاه توچال"
+  "@hamnavardanepaytakht": "کانال همنوردان پایتخت"
+  "@Alaberz": "کانال البرز"
+  "@alamkoohd": "کانال علم‌کوه"
+  "@EverestClubb": "باشگاه اورست"
+  "@Everestclub_ir": "باشگاه اورست ایران"
+  "@Mountaineering_Club_of_Iran": "باشگاه کوهنوردی ایران"
+  "@chakadclub": "باشگاه چکاد"
+  "@taranomclub": "باشگاه ترنم"
+  "@TehranKouh": "کانال تهران‌کوه"
+  "@rock_climbers": "کانال سنگ‌نوردان"
+  "@berimkouh": "کانال بریم‌کوه"
+  "@doostdarantabiat": "کانال دوستداران طبیعت"
+  "@kouhyaran": "کانال کوهیاران"
+  "@mountainmeteorology": "کانال هواشناسی کوهستان"
+  "@ofogh_tehran": "کانال افق تهران"
+  "@aseman_alborz": "کانال آسمان البرز"
+
 # Pronunciation corrections: wrong → right (applied before audio generation)
 # Add proper nouns, place names, etc. that Gemini mispronounces
 pronunciation_corrections:
