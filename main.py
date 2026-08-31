@@ -1,38 +1,40 @@
-#!/usr/bin/env python3
-"""
-Koohnameh Podcast Bot v5
-Gemini 2.5 Flash Native Audio Dialog for direct audio generation.
-No edge-tts, no NotebookLM. Native audio from Gemini Live API.
-"""
+# Koohnameh Podcast Bot v5
+# Fetches news from 86 Telegram channels → Gemini script → Gemini Native Audio → Telegram channel
 
-import asyncio
-import json
 import os
 import re
-import wave
-import yaml
+import asyncio
 import logging
-import requests
-from datetime import datetime, timedelta
+import json
+import wave
+import time
 import jdatetime
-from google import genai
-from google.genai import types
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-JALALI_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                 "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-
-MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
+# Gemini Native Audio Dialog config
+MODEL_AUDIO = "models/gemini-2.5-flash-native-audio-preview-12-2025"
 SAMPLE_RATE = 24000
+JALALI_MONTHS = [
+    "ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن",
+    "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"
+]
+
+# Voice config
 VOICE_FARID = "Charon"       # Informative male
 VOICE_DILARA = "Aoede"      # Breezy female
 SPEAKER_MALE = "فرشید"
 SPEAKER_FEMALE = "پریسا"
 
 
+# =============================================================================
+# Load config
+# =============================================================================
+
 def load_config():
+    import yaml
     with open("config.yaml", "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
@@ -42,36 +44,23 @@ def load_config():
 # =============================================================================
 
 async def fetch_messages_from_channel(client, channel_username, since_date):
-    from telethon import errors
-    messages = []
     try:
         entity = await client.get_entity(channel_username)
-        async for message in client.iter_messages(entity, limit=100):
+        messages = []
+        async for message in client.iter_messages(entity, limit=50):
             if message.date.replace(tzinfo=None) >= since_date:
                 text = message.text or ""
                 messages.append({
-                    "id": message.id,
-                    "date": message.date.isoformat(),
                     "text": text,
-                    "has_media": message.media is not None,
-                    "has_text": len(text.strip()) > 20,
                     "channel": channel_username,
+                    "date": message.date.isoformat(),
+                    "has_media": message.media is not None,
+                    "has_text": bool(text),
                 })
-            else:
-                break
-    except errors.UsernameNotOccupiedError:
-        logger.warning(f"Channel not found: @{channel_username}")
-    except errors.ChannelPrivateError:
-        logger.warning(f"Channel is private: @{channel_username}")
-    except errors.FloodWaitError as e:
-        if e.seconds > 300:
-            logger.warning(f"Flood wait {e.seconds}s too long for @{channel_username}, skipping")
-            return messages
-        logger.warning(f"Flood wait for @{channel_username}: {e.seconds}s")
-        await asyncio.sleep(e.seconds)
+        return messages
     except Exception as e:
         logger.error(f"Error fetching @{channel_username}: {e}")
-    return messages
+        return []
 
 
 # =============================================================================
@@ -104,7 +93,6 @@ def filter_messages(messages, config):
             continue
         seen_texts.add(key)
         filtered.append(msg)
-    logger.info(f"Filtered {len(messages)} -> {len(filtered)} messages (deduped)")
     return filtered
 
 
@@ -140,7 +128,7 @@ def build_source_text(filtered_messages, priority_channels=None, channel_names=N
 
 
 # =============================================================================
-# Generate podcast script via Gemini text model
+# Gemini script generation
 # =============================================================================
 
 def generate_podcast_script(source_text, podcast_date):
@@ -152,84 +140,48 @@ def generate_podcast_script(source_text, podcast_date):
 
     client = genai.Client(api_key=api_key)
 
-    prompt = f"""
-# نقش
-تو نویسنده‌ی حرفه‌ای دیالوگ پادکست خبری هستی، متخصص تبدیل خبرهای خام به گفتگوی رادیویی طبیعی و پرانرژی بین دو مجری.
+    prompt = f"""تو نویسنده حرفه‌ای پادکست هستی. متن اخبار زیر را به یک دیالوگ پادکست بلند تبدیل کن.
 
-# ورودی
-متن اخبار زیر شامل چند خبر کوهنوردی از کانال‌های مختلف است. کانال‌هایی که با نشان ⭐ مشخص شده‌اند، اخبار اولویت‌دار محسوب می‌شوند.
-
-متن اخبار:
-{source_text}
-
-# مجری‌ها
-- {SPEAKER_MALE} (مذکر)
-- {SPEAKER_FEMALE} (مونث)
-
-# لحن
-گرم، صمیمی، پرانرژی، شبیه یک برنامه‌ی صبحگاهی رادیویی. مجری‌ها با هم راحت صحبت می‌کنند، گاهی شوخی سبک یا تعجب طبیعی نشان می‌دهند، و از تکرار عبارات یکسان در طول برنامه خودداری می‌کنند.
-
-# ساختار خروجی
-
-## آغاز (دقیقاً همین متن)
+قوانین:
+- دو مجری صحبت می‌کنند: {SPEAKER_MALE} (مذکر) و {SPEAKER_FEMALE} (مونث)
+- لحن گرم و صمیمی، انرژی‌بخش، مثل یک برنامه صبحگاهی
+- کانال‌هایی که نشان ⭐ اولویت دارند حتماً و با جزئیات بیشتر پوشش داده شوند.
+- شروع دقیقاً با:
 {SPEAKER_MALE}: سلام و درود خدمت شنوندگان عزیز پادکست کوهنامه.
 {SPEAKER_FEMALE}: امروز تاریخ {podcast_date} هست و در تحریریه سایت کوهنامه با خلاصه‌ای از اخبار و نوشته‌های کوهنوردی که دیروز در فضای مجازی منتشر شده در خدمتتون هستیم.
 {SPEAKER_MALE}: خوب بریم با هم مروری داشته باشیم بر روی مطالب کانال‌های فعال دیروز.
 
-## بدنه (برای هر خبر این الگو را رعایت کن)
-۱. یک مجری خبر را با کلمات خودش باز می‌کند (نه ترجمه یا کپی مستقیم متن منبع).
-۲. همان مجری ۲-۳ جمله‌ی دیگر جزئیات را توضیح می‌دهد (چه اتفاقی افتاده، چه کسی، چرا مهم است).
-۳. مجری دوم با یک واکنش طبیعی (سؤال، تعجب، مقایسه، یا تحلیل کوتاه) وارد می‌شود — حداقل ۲ جمله.
-۴. در صورت نیاز، مجری اول با یک جمع‌بندی کوتاه (۱ جمله) خبر را می‌بندد.
-۵. انتقال به خبر بعدی با عبارتی متفاوت از خبرهای قبلی انجام شود (از تکرار عین یک جمله‌ی انتقالی در کل پادکست خودداری کن).
+- پایان دقیقاً با:
+{SPEAKER_FEMALE}: امیدوارم از شنیدن این پادکست لذت برده باشید.
+{SPEAKER_MALE}: هر روز منتظر انتشار پادکست‌های صوتی روزانه از کوهنامه باشید.
+{SPEAKER_FEMALE}: تا پادکست بعدی، خدا نگهدارتون باشه.
 
-قوانین اختصاصی محتوا:
-- اخبار کانال‌های ⭐ باید نسبت به بقیه با جزئیات بیشتر (حداقل ۵-۶ جمله‌ی مجموع بین دو مجری) و با یک تحلیل کوتاه اضافه پوشش داده شوند.
-- اخبار غیر ⭐ در حد ۳-۴ جمله‌ی مجموع کافی است؛ آن‌ها را مصنوعی طولانی نکن.
-- ترتیب روایت اخبار را از متن منبع حفظ کن مگر اینکه منطقاً نیاز به تغییر باشد.
-- هیچ خبری را حذف نکن؛ اگر خبری بسیار کوتاه یا کم‌اهمیت است، آن را در ۱-۲ جمله رد کن، نه با پرکردن مصنوعی.
+- حداکثر ۲۵ خط دیالوگ
+- هر خط با فرمت: نام‌سخنران: متن
+- فقط از نام‌های {SPEAKER_MALE} و {SPEAKER_FEMALE} استفاده کن
+- از emoji استفاده نکن
+- اعداد فارسی باشند
 
-## پایان (دقیقاً همین متن)
-{SPEAKER_MALE}: امیدوارم از شنیدن این پادکست لذت برده باشید.
-{SPEAKER_FEMALE}: هر روز منتظر انتشار پادکست‌های صوتی روزانه از کوهنامه باشید.
-{SPEAKER_MALE}: تا پادکست بعدی، خدا نگهدارتون باشه.
+متن اخبار:
+{source_text}"""
 
-# قوانین سخت‌گیرانه‌ی خروجی
-- فقط و فقط دیالوگ خروجی بده؛ هیچ توضیح، عنوان، یادداشت، یا خلاصه‌ی اضافه ننویس.
-- هیچ نشانه‌ی مارک‌داون (ستاره، هشتگ، خط تیره، براکت) در خروجی نباشد.
-- هر خط دقیقاً با یکی از این دو فرمت شروع شود:
-{SPEAKER_MALE}: ...
-{SPEAKER_FEMALE}: ...
-- از متن منبع کپی مستقیم نکن؛ همه‌چیز را با زبان طبیعی گفتاری بازنویسی کن.
-- طول کل دیالوگ متناسب با تعداد اخبار موجود در متن منبع باشد؛ اگر اخبار کم بود، دیالوگ را با پرحرفی مصنوعی طولانی نکن.
-"""
-
-    # Retry with backoff for 503/overload errors
-    import time
     for attempt in range(5):
         try:
             response = client.models.generate_content(
-                model="gemini-3.6-flash",
+                model="gemini-2.0-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
-                    temperature=0.7,
-                ),
             )
-            script = response.text
-            logger.info(f"Script generated: {len(script)} chars, {len(script.splitlines())} lines")
-            return script
+            return response.text
         except Exception as e:
-            wait = 30 * (attempt + 1)
-            logger.warning(f"Script generation attempt {attempt+1}/5 failed: {e}. Retrying in {wait}s...")
-            time.sleep(wait)
-
-    logger.error("Script generation failed after 5 attempts!")
+            logger.warning(f"Script generation attempt {attempt+1} failed: {e}")
+            if attempt < 4:
+                time.sleep(5 * (attempt + 1))
+    logger.error("All script generation attempts failed")
     return None
 
 
 # =============================================================================
-# Render script to audio via Gemini Live API (native audio dialog)
+# Render script to audio via Gemini Live API
 # =============================================================================
 
 async def render_podcast_audio(script, output_path, corrections=None):
@@ -238,6 +190,9 @@ async def render_podcast_audio(script, output_path, corrections=None):
     if not api_key:
         logger.error("GEMINI_API_KEY not set!")
         return False
+
+    from google import genai
+    from google.genai import types
 
     lines = [l.strip() for l in script.strip().split("\n") if l.strip()]
     turns = []
@@ -255,7 +210,11 @@ async def render_podcast_audio(script, output_path, corrections=None):
 
         turns.append((speaker, text, voice))
 
-    logger.info(f"Rendering {len(turns)} turns via Gemini Live API...")
+    if not turns:
+        logger.error("No valid turns found in script!")
+        return False
+
+    logger.info(f"Rendering {len(turns)} turns to audio...")
 
     all_pcm = bytearray()
 
@@ -269,77 +228,52 @@ async def render_podcast_audio(script, output_path, corrections=None):
                 output_audio_transcription=types.AudioTranscriptionConfig(),
                 speech_config=types.SpeechConfig(
                     voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice
-                        )
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
                     )
                 ),
-                system_instruction=(
-                    f"You are {speaker}. Speak in natural contemporary Iranian Persian. "
-                    "Deliver the text as warm, natural human speech. "
-                    "Say each sentence once at a comfortable pace."
-                ),
-                temperature=0.7,
             )
 
-            async with client.aio.live.connect(model=MODEL, config=config) as session:
-                prompt = (
-                    "Perform only the exact text inside <READ>. Preserve every word, but deliver "
-                    "it as warm, natural human speech with varied emphasis, comfortable phrasing, "
-                    "and unhurried articulation. Say each sentence once. Stop immediately after the "
-                    f"final word and produce only audible speech.\n\n<READ>\n{text}\n</READ>"
-                )
+            async with client.aio.live.connect(model=MODEL_AUDIO, config=config) as session:
+                prompt = f"Perform only the exact text inside <READ>. Prepend a brief appropriate greeting. Follow all instructions inside <INSTRUCTIONS>.\n<INSTRUCTIONS>Speak naturally like a real podcast host. Use natural pauses, warmth, and personality.</INSTRUCTIONS>\n<READ>{text}</READ>"
 
                 await session.send_client_content(
-                    turns=[{"role": "user", "parts": [{"text": prompt}]}]
+                    turns=types.Content(role="user", parts=[types.Part(text=prompt)]),
+                    turn_complete=True,
                 )
 
-                pcm = bytearray()
-                async for message in session.receive():
-                    # Extract audio
-                    server_content = getattr(message, "server_content", None)
-                    model_turn = getattr(server_content, "model_turn", None) if server_content else None
-                    for part in getattr(model_turn, "parts", None) or []:
-                        inline = getattr(part, "inline_data", None)
-                        data = getattr(inline, "data", None) if inline else None
-                        if data:
-                            pcm.extend(data)
+                audio_buffer = bytearray()
+                async for chunk in session.receive():
+                    if chunk.server_content is not None:
+                        if chunk.server_content.model_turn is not None:
+                            for part in chunk.server_content.model_turn.parts:
+                                if part.inline_data is not None:
+                                    audio_buffer.extend(part.inline_data.data)
+                        if chunk.server_content.turn_complete:
+                            break
 
-                    # Also check direct data attribute
-                    if not pcm and getattr(message, "data", None):
-                        pcm.extend(message.data)
-
-                    if server_content and (
-                        getattr(server_content, "turn_complete", False)
-                        or getattr(server_content, "generation_complete", False)
-                    ):
-                        break
-
-                if pcm:
-                    all_pcm.extend(pcm)
-                    logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
+                if audio_buffer:
+                    all_pcm.extend(audio_buffer)
+                    logger.info(f"  Got {len(audio_buffer)} bytes PCM audio")
                 else:
                     logger.warning(f"  No audio for turn {i+1}")
 
         except Exception as e:
-            logger.error(f"Error on turn {i+1}: {e}")
+            logger.error(f"  Error on turn {i+1}: {e}")
             continue
 
-        await asyncio.sleep(1)  # Rate limit
-
     if not all_pcm:
-        logger.error("No audio generated!")
+        logger.error("No audio collected!")
         return False
 
-    # Write WAV file
-    with wave.open(output_path, "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(SAMPLE_RATE)
-        wav.writeframes(bytes(all_pcm))
+    # Save as WAV
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with wave.open(output_path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(bytes(all_pcm))
 
-    duration = len(all_pcm) / (SAMPLE_RATE * 2)
-    logger.info(f"Podcast saved: {output_path} ({duration:.1f}s)")
+    logger.info(f"Saved {len(all_pcm)} bytes PCM to {output_path}")
     return True
 
 
@@ -351,23 +285,25 @@ def send_to_telegram(audio_path, title, caption):
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not bot_token or not chat_id:
-        logger.warning("Telegram credentials not set")
-        return False
+        logger.error("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set!")
+        return
+
+    import requests
+
     url = f"https://api.telegram.org/bot{bot_token}/sendAudio"
-    with open(audio_path, "rb") as audio:
-        files = {"audio": audio}
+    with open(audio_path, "rb") as f:
+        files = {"audio": f}
         data = {
             "chat_id": chat_id,
-            "caption": caption[:1024],
             "title": title,
-            "performer": "کوهنامه",
+            "caption": caption[:1024],
+            "parse_mode": "HTML",
         }
-        resp = requests.post(url, files=files, data=data)
+        resp = requests.post(url, files=files, data=data, timeout=120)
         if resp.status_code == 200:
             logger.info("Audio sent to Telegram successfully")
-            return True
-        logger.error(f"Telegram error: {resp.text}")
-        return False
+        else:
+            logger.error(f"Failed to send: {resp.status_code} {resp.text}")
 
 
 # =============================================================================
@@ -377,19 +313,16 @@ def send_to_telegram(audio_path, title, caption):
 async def async_main():
     config = load_config()
     channels = config.get("channels", [])
-    if not channels:
-        logger.error("No channels configured!")
-        return
 
-    api_id = int(os.environ.get("TELEGRAM_API_ID", "0"))
+    api_id = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
     if not api_id or not api_hash:
         logger.error("TELEGRAM_API_ID or TELEGRAM_API_HASH not set!")
         return
 
     from telethon import TelegramClient
-    client = TelegramClient("user_session", api_id, api_hash)
-    await client.start()
+    client = TelegramClient("bot_session", int(api_id), api_hash)
+    await client.start(bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""))
     try:
         logger.info(f"Fetching messages from {len(channels)} channels...")
         since_date = datetime.utcnow() - timedelta(hours=24)
@@ -398,15 +331,14 @@ async def async_main():
             username = ch.lstrip("@") if isinstance(ch, str) else ch.get("username", "").lstrip("@")
             msgs = await fetch_messages_from_channel(client, username, since_date)
             messages.extend(msgs)
-            await asyncio.sleep(2)
-        await client.disconnect()
+            await asyncio.sleep(1)
+
         logger.info(f"Total messages fetched: {len(messages)}")
 
-        if not messages:
-            logger.warning("No messages found. Nothing to podcast.")
-            return
-
+        # Filter
         filtered = filter_messages(messages, config)
+        logger.info(f"Messages after filtering: {len(filtered)}")
+
         if not filtered:
             logger.warning("No messages after filtering.")
             return
@@ -417,31 +349,26 @@ async def async_main():
         logger.info(f"Source text built: {total_msgs} msgs from {active_channels} channels, date={podcast_date}")
 
         # Step 1: Gemini generates podcast script
-        logger.info("Generating podcast script via Gemini API...")
+        logger.info("Generating podcast script...")
         script = generate_podcast_script(source_text, podcast_date)
         if not script:
-            logger.error("Script generation failed!")
+            logger.error("Failed to generate script!")
             return
+        logger.info(f"Script generated ({len(script)} chars)")
 
-        # Step 2: Gemini Live renders audio
-        os.makedirs("output", exist_ok=True)
-        date_slug = podcast_date.replace(" ", "_")
-        output_path = f"output/podcast_{date_slug}.wav"
-        logger.info("Rendering podcast audio via Gemini Live API...")
+        # Step 2: Render audio via Gemini Native Audio Dialog
+        output_path = "output/podcast.wav"
         success = await render_podcast_audio(script, output_path,
             corrections=config.get("pronunciation_corrections", {}))
-
         if not success:
-            logger.error("Audio generation failed!")
+            logger.error("Failed to render audio!")
             return
 
         # Step 3: Send to Telegram
         logger.info("Sending to Telegram...")
         title = f"پادکست کوهنامه {podcast_date}"
         caption = (
-            f"🎙 پادکست روز \"{podcast_date}\" کوهنامه -تهیه شده توسط هوش مصنوعی "
-            f"( توجه: ایرادات، تلفظ اسامی و  تلفظ نام ها خطای ذاتی هوش مصنوعی است "
-            f"و کوهنامه نقشی در آن ندارد.) این پادکست به صورت روزانه از بین کانال های فعال تلگرامی تهیه می شود.\n"
+            f"🎙 پادکست روز \"{podcast_date}\" کوهنامه -تهیه شده توسط هوش مصنوعی ( توجه: ایرادات، تلفظ اسامی و  تلفظ نام ها خطای ذاتی هوش مصنوعی است و کوهنامه نقشی در آن ندارد.) این پادکست به صورت روزانه از بین کانال های فعال تلگرامی تهیه می شود.\n"
             f"📅 {podcast_date}\n"
             f"────────────\n"
             f"🌐 کوهنامه | اخبار کوهنوردی\n"
@@ -449,22 +376,17 @@ async def async_main():
             f"📢 @koohnameh"
         )
         send_to_telegram(output_path, title, caption)
+
         logger.info("Done!")
 
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        try:
-            await client.disconnect()
-        except Exception:
-            pass
+    finally:
+        await client.disconnect()
 
 
 def main():
-    logger.info("Starting Koohnameh Podcast Bot v5 (Gemini Native Audio)...")
     asyncio.run(async_main())
 
 
 if __name__ == "__main__":
+    from google import genai
     main()
