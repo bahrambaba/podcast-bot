@@ -388,8 +388,9 @@ async def async_main():
         return
 
     from telethon import TelegramClient
-    client = TelegramClient("user_session", api_id, api_hash)
-    await client.start()
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    client = TelegramClient("bot_session", api_id, api_hash)
+    await client.start(bot_token=bot_token)
     try:
         logger.info(f"Fetching messages from {len(channels)} channels...")
         since_date = datetime.utcnow() - timedelta(hours=24)
