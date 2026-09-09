@@ -88,6 +88,7 @@ channels:
   - "@khadem_club"
   - "@mountainmeteorology"
   - "@hamgamangolestan"
+  - "@garinkoh"
 
 # Filters
 filters:
@@ -127,7 +128,7 @@ channel_names:
   "@mymountains": "کانال کوه‌های من"
   "@ch_envir_iran": "کانال محیط‌زیست ایران"
   "@ngjourney": "کانال سفر نجف‌گرد"
-  "@damavand_amoozesh": "کانال آموزش دماوند"
+  "@damavand_amoozesh": "کانالِ آموزشِ دَماوَند"
   "@irancanyon": "کانال دره نوردی ایران"
   "@kolegardi": "کانال کوله گردی"
   "@iran5610": "کانال ایران ۵۶۱۰"
@@ -142,7 +143,7 @@ channel_names:
   "@H_moghaddam8000": "کانال حسین مقدم "
   "@MMreference": "کانال مرجع کوهنوردی"
   "@BardiaClimbing": "کانال بردیا قبادی"
-  "@DamavandClub": "باشگاه دماوند"
+  "@DamavandClub": "باشگاهِ دَماوَند"
   "@news83kouh": "کانال کلاغ‌ها"
   "@Mang_halat": "کانال مانگ هلات"
   "@iclimb": "کانال آی‌کلایم"
@@ -203,6 +204,7 @@ channel_names:
   "@khadem_club": "باشگاه خادم"
   "@mountainmeteorology": "کانال هواشناسی کوهستان"
   "@hamgamangolestan": "کانال همگام گلستان"
+  "@garinkoh": "کانال گَرینکوه"
 
 # Pronunciation corrections: wrong → right (applied before audio generation)
 # Add proper nouns, place names, etc. that Gemini mispronounces
@@ -963,4 +965,9 @@ pronunciation_corrections:
 "هشدار کوهستان": "هُشدارِ کُوهِستان"
 "اطلاعیه": "اِطّلاعیِه"
 "بیانیه": "بِیانیِه"
-  
+"سامانه جوی": "سامانِهٔ جَوی"
+"تغییرات جوی": "تَغییراتِ جَوی"
+"شرایط جوی": "شَرایِطِ جَوی"
+"پایداری جو": "پایْداریِ جَو"
+"ناپایداری جو": "ناپایْداریِ جَو
+
