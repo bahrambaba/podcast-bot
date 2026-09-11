@@ -206,25 +206,33 @@ def generate_podcast_script(source_text, podcast_date):
 
     # Retry with backoff for 503/overload errors
     import time
-    for attempt in range(5):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
-                    temperature=0.7,
-                ),
-            )
-            script = response.text
-            logger.info(f"Script generated: {len(script)} chars, {len(script.splitlines())} lines")
-            return script
-        except Exception as e:
-            wait = 30 * (attempt + 1)
-            logger.warning(f"Script generation attempt {attempt+1}/5 failed: {e}. Retrying in {wait}s...")
-            time.sleep(wait)
+    MAX_ROUNDS = 3  # 3 rounds x 5 attempts = 15 total attempts
+    ROUND_WAIT = 3600  # 1 hour between rounds
 
-    logger.error("Script generation failed after 5 attempts!")
+    for round_num in range(MAX_ROUNDS):
+        if round_num > 0:
+            logger.warning(f"All 5 attempts failed. Waiting {ROUND_WAIT}s (1 hour) before round {round_num+1}...")
+            time.sleep(ROUND_WAIT)
+
+        for attempt in range(5):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
+                        temperature=0.7,
+                    ),
+                )
+                script = response.text
+                logger.info(f"Script generated: {len(script)} chars, {len(script.splitlines())} lines")
+                return script
+            except Exception as e:
+                wait = 120 + (60 * attempt)  # 120, 180, 240, 300, 360
+                logger.warning(f"Script generation attempt {attempt+1}/5 (round {round_num+1}/{MAX_ROUNDS}) failed: {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+
+    logger.error("Script generation failed after all rounds!")
     return None
 
 
