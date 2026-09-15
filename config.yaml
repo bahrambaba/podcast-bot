@@ -205,6 +205,7 @@ channel_names:
   "@mountainmeteorology": "کانال هواشناسی کوهستان"
   "@hamgamangolestan": "کانال همگام گلستان"
   "@garinkoh": "کانال گَرینکوه"
+  "@sarakchal_alpine_club": "کانال سَرَکْچال"
 
 # Pronunciation corrections: wrong → right (applied before audio generation)
 # Add proper nouns, place names, etc. that Gemini mispronounces
@@ -481,7 +482,7 @@ pronunciation_corrections:
   "پرچنان": "پَرچِنان"
   "ورجین": "وَرْجین"
   "سرکچال": "سَرکَچال"
-  "سرکچال‌ها": "سَرکَچال‌ها"
+  "سرکچال‌ها": "سَرَکْچالها"
   "جانستون": "جانِستون"
   "آبک": "آبَک"
   "کلون‌بستون": "کُلُون‌بَستُون"
