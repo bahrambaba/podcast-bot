@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+آخ#!/usr/bin/env python3
 """
 Koohnameh Podcast Bot v5
 Gemini 2.5 Flash Native Audio Dialog for direct audio generation.
@@ -448,7 +448,7 @@ async def async_main():
         logger.info("Sending to Telegram...")
         title = f"پادکست کوهنامه {podcast_date}"
         caption = (
-            f"🎙 پادکست روز \📅"{podcast_date}\" کوهنامه -تهیه شده توسط هوش مصنوعی "
+            f"🎙 پادکست روز \"{podcast_date}\" کوهنامه -تهیه شده توسط هوش مصنوعی "
             f"( توجه: ایرادات، تلفظ اسامی و  تلفظ نام ها خطای ذاتی هوش مصنوعی است "
             f"و کوهنامه نقشی در آن ندارد.) این پادکست به صورت روزانه از بین کانال های فعال تلگرامی تهیه می شود.\n\n"
             f"📣 اگه این پادکست رو دوست داشتی، برای دوستان کوهنوردت هم بفرست تا اونا هم باخبر بشن!\n\n"
