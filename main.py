@@ -1,4 +1,4 @@
-آخ#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Koohnameh Podcast Bot v5
 Gemini 2.5 Flash Native Audio Dialog for direct audio generation.
