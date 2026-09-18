@@ -3,3 +3,4 @@ pyyaml
 telethon
 jdatetime
 google-genai
+pydub
