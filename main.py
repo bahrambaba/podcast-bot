@@ -415,6 +415,13 @@ async def generate_tts_audio(text, output_wav, voice):
         logger.error("GEMINI_API_KEY not set!")
         return False
 
+    # Speaker labels are metadata, not words to pronounce — strip ALL of them
+    # (intro/outro blocks may contain multiple label switches mid-text).
+    text = re.sub(rf"\s*({SPEAKER_MALE}|{SPEAKER_FEMALE})\s*:\s*", "", text).strip()
+    if not text:
+        logger.error("Nothing left to speak after stripping speaker labels!")
+        return False
+
     client = genai.Client(api_key=api_key)
     live_config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
