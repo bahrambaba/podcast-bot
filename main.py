@@ -169,7 +169,12 @@ def generate_podcast_script(source_text, podcast_date):
 - {SPEAKER_FEMALE} (مونث)
 
 # لحن
-گرم، صمیمی، پرانرژی، شبیه یک برنامه‌ی صبحگاهی رادیویی. مجری‌ها با هم راحت صحبت می‌کنند، گاهی شوخی سبک یا تعجب طبیعی نشان می‌دهند، و از تکرار عبارات یکسان در طول برنامه خودداری می‌کنند.
+دو دوست صمیمی و قدیمی که هر دو عاشق کوهنوردی‌اند و قرار است برای شنوندگانشان از اخبار دیروز بگویند. صمیمی و خودمونی مثل دو دوست که صبح قهوه می‌خورند و گپ می‌زنند — نه مثل مجری‌های خشک و رسمی رادیو. گاهی با اسم همدیگه رو خطاب می‌کنند («راست میگی فرشید»، «قشنگ بگو پریسا»)، گاهی می‌خندند، تعجب می‌کنند، یا با حسرت از خاطره‌ای کوهنوردی می‌گویند. احساسات طبیعی داشته باشید و از لحن کتابی و رسمی پرهیز کنید.
+
+نکات گفتمانی:
+- جمله‌های کوتاه و محاوره‌ای بزنید («وای چه خبر خوبی!»، «آها حالا فهمیدم»).
+- گاهی حروف اضافه محاوره‌ای به کار ببرید (مثل «یه»، «اینو»، «نمی‌دونم چرا ولی»).
+- از عبارات تکراری و قالبی پرهیز کنید؛ هر خبر را با سبک متفاوتی شروع کنید.
 
 # ساختار خروجی
 
@@ -254,77 +259,97 @@ async def render_podcast_audio(script, output_path, corrections=None):
             for wrong, right in sorted(corrections.items(), key=lambda x: len(x[0]), reverse=True):
                 text = text.replace(wrong, right)
 
-        turns.append((speaker, text, voice))
+        # Merge consecutive same-speaker lines into one turn: fewer Live sessions
+        # = fewer voice/tone switches and smoother continuity between lines.
+        if turns and turns[-1][0] == speaker:
+            turns[-1] = (speaker, turns[-1][1] + " " + text, voice)
+        else:
+            turns.append((speaker, text, voice))
 
     logger.info(f"Rendering {len(turns)} turns via Gemini Live API...")
 
     all_pcm = bytearray()
+    client = genai.Client(api_key=api_key)
 
     for i, (speaker, text, voice) in enumerate(turns):
         logger.info(f"Turn {i+1}/{len(turns)}: {speaker}: {text[:60]}...")
 
-        try:
-            client = genai.Client(api_key=api_key)
-            config = types.LiveConnectConfig(
-                response_modalities=["AUDIO"],
-                output_audio_transcription=types.AudioTranscriptionConfig(),
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=voice
+        pcm = None
+        for attempt in range(2):  # 1 retry on truncation/empty audio
+            try:
+                config = types.LiveConnectConfig(
+                    response_modalities=["AUDIO"],
+                    output_audio_transcription=types.AudioTranscriptionConfig(),
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=voice
+                            )
                         )
+                    ),
+                    system_instruction=(
+                        f"You are {speaker}, the friendly co-host of a Persian mountaineering podcast. "
+                        "Speak in natural contemporary Iranian Persian with a warm, friendly, "
+                        "conversational tone. Keep the same voice and energy for every line. "
+                        "Say each sentence once at a comfortable pace."
+                    ),
+                    temperature=0.5,
+                )
+
+                async with client.aio.live.connect(model=MODEL, config=config) as session:
+                    prompt = (
+                        "Perform only the exact text inside <READ>. Preserve every word, but deliver "
+                        "it as warm, natural human speech with consistent tone, comfortable phrasing, "
+                        "and unhurried articulation. Say each sentence once. Stop after the "
+                        f"final word and produce only audible speech.\n\n<READ>\n{text}\n</READ>"
                     )
-                ),
-                system_instruction=(
-                    f"You are {speaker}. Speak in natural contemporary Iranian Persian. "
-                    "Deliver the text as warm, natural human speech. "
-                    "Say each sentence once at a comfortable pace."
-                ),
-                temperature=0.7,
-            )
 
-            async with client.aio.live.connect(model=MODEL, config=config) as session:
-                prompt = (
-                    "Perform only the exact text inside <READ>. Preserve every word, but deliver "
-                    "it as warm, natural human speech with varied emphasis, comfortable phrasing, "
-                    "and unhurried articulation. Say each sentence once. Stop immediately after the "
-                    f"final word and produce only audible speech.\n\n<READ>\n{text}\n</READ>"
-                )
+                    await session.send_client_content(
+                        turns=[{"role": "user", "parts": [{"text": prompt}]}]
+                    )
 
-                await session.send_client_content(
-                    turns=[{"role": "user", "parts": [{"text": prompt}]}]
-                )
+                    pcm = bytearray()
+                    async for message in session.receive():
+                        # Extract audio
+                        server_content = getattr(message, "server_content", None)
+                        model_turn = getattr(server_content, "model_turn", None) if server_content else None
+                        for part in getattr(model_turn, "parts", None) or []:
+                            inline = getattr(part, "inline_data", None)
+                            data = getattr(inline, "data", None) if inline else None
+                            if data:
+                                pcm.extend(data)
 
-                pcm = bytearray()
-                async for message in session.receive():
-                    # Extract audio
-                    server_content = getattr(message, "server_content", None)
-                    model_turn = getattr(server_content, "model_turn", None) if server_content else None
-                    for part in getattr(model_turn, "parts", None) or []:
-                        inline = getattr(part, "inline_data", None)
-                        data = getattr(inline, "data", None) if inline else None
-                        if data:
-                            pcm.extend(data)
+                        # Also check direct data attribute
+                        if not pcm and getattr(message, "data", None):
+                            pcm.extend(message.data)
 
-                    # Also check direct data attribute
-                    if not pcm and getattr(message, "data", None):
-                        pcm.extend(message.data)
+                        if server_content and (
+                            getattr(server_content, "turn_complete", False)
+                            or getattr(server_content, "generation_complete", False)
+                        ):
+                            break
 
-                    if server_content and (
-                        getattr(server_content, "turn_complete", False)
-                        or getattr(server_content, "generation_complete", False)
-                    ):
-                        break
+            except Exception as e:
+                logger.error(f"Error on turn {i+1} (attempt {attempt+1}): {e}")
+                pcm = None
 
-                if pcm:
-                    all_pcm.extend(pcm)
-                    logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
-                else:
-                    logger.warning(f"  No audio for turn {i+1}")
+            # Truncation guard: Persian speech is slower than ~40 chars/s.
+            # Audio shorter than that means the model cut off mid-sentence — retry.
+            duration = len(pcm) / (SAMPLE_RATE * 2) if pcm else 0.0
+            min_expected = max(1.0, len(text) / 40)
+            if pcm and duration >= min_expected:
+                break
+            if pcm:
+                logger.warning(f"Turn {i+1} audio too short ({duration:.1f}s for {len(text)} chars) — retrying...")
+                pcm = None
+            if attempt == 0:
+                await asyncio.sleep(3)
 
-        except Exception as e:
-            logger.error(f"Error on turn {i+1}: {e}")
-            continue
+        if pcm:
+            all_pcm.extend(pcm)
+            logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
+        else:
+            logger.warning(f"  No audio for turn {i+1}")
 
         await asyncio.sleep(1)  # Rate limit
 
