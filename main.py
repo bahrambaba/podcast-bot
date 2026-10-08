@@ -215,7 +215,7 @@ def generate_podcast_script(source_text, podcast_date):
         for attempt in range(5):
             try:
                 response = client.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model="gemini-3.5-flash-lite",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         system_instruction="تو یک نویسنده پادکست حرفه‌ای فارسی هستی.",
