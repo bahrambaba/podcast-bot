@@ -269,7 +269,7 @@ async def render_podcast_audio(script, output_path, corrections=None):
     logger.info(f"Rendering {len(turns)} turns via Gemini Live API...")
 
     all_pcm = bytearray()
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
 
     for i, (speaker, text, voice) in enumerate(turns):
         logger.info(f"Turn {i+1}/{len(turns)}: {speaker}: {text[:60]}...")
@@ -447,7 +447,7 @@ async def generate_tts_audio(text, output_wav, voice):
         logger.error("Nothing left to speak after stripping speaker labels!")
         return False
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
     live_config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
         speech_config=types.SpeechConfig(
