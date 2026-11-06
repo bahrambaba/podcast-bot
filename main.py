@@ -18,7 +18,8 @@ from datetime import datetime, timedelta
 import jdatetime
 from google import genai
 from google.genai import types
-from pydub import AudioSegment, split_on_silence
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
