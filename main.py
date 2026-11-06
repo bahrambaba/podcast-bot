@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import jdatetime
 from google import genai
 from google.genai import types
-from pydub import AudioSegment
+from pydub import AudioSegment, split_on_silence
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -238,6 +238,19 @@ def generate_podcast_script(source_text, podcast_date):
 # Render script to audio via Gemini Live API (native audio dialog)
 # =============================================================================
 
+def trim_silence_pcm(pcm):
+    """Compress long silences inside a PCM turn to max ~0.4s pause.
+    Never removes voiced audio — only silence runs longer than 1.1s."""
+    if not pcm:
+        return pcm
+    seg = AudioSegment(pcm, sample_width=2, frame_rate=SAMPLE_RATE, channels=1)
+    threshold = min(-40.0, seg.dBFS - 35) if seg.rms else -40.0
+    chunks = split_on_silence(seg, min_silence_len=1100, silence_thresh=threshold, keep_silence=400)
+    if not chunks:
+        return pcm
+    return b"".join(c.raw_data for c in chunks)
+
+
 async def render_podcast_audio(script, output_path, corrections=None):
     """Send each script turn to Gemini Live API and collect PCM audio."""
     api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -275,7 +288,7 @@ async def render_podcast_audio(script, output_path, corrections=None):
         logger.info(f"Turn {i+1}/{len(turns)}: {speaker}: {text[:60]}...")
 
         pcm = None
-        for attempt in range(2):  # 1 retry on truncation/empty audio
+        for attempt in range(3):  # up to 2 retries on truncation/empty audio
             try:
                 config = types.LiveConnectConfig(
                     response_modalities=["AUDIO"],
@@ -333,23 +346,29 @@ async def render_podcast_audio(script, output_path, corrections=None):
                 logger.error(f"Error on turn {i+1} (attempt {attempt+1}): {e}")
                 pcm = None
 
-            # Truncation guard: Persian speech is slower than ~40 chars/s.
-            # Audio shorter than that means the model cut off mid-sentence — retry.
-            duration = len(pcm) / (SAMPLE_RATE * 2) if pcm else 0.0
-            min_expected = max(1.0, len(text) / 40)
-            if pcm and duration >= min_expected:
+            # Truncation guard: natural Persian speech is ~15-20 chars/s.
+            # Anything slower (~<18 chars/s of actual speech) means cut-off — retry.
+            speech = trim_silence_pcm(pcm) if pcm else b""
+            duration = len(speech) / (SAMPLE_RATE * 2) if speech else 0.0
+            min_expected = max(1.0, len(text) / 18)
+            cps = len(text) / duration if duration > 0 else 0.0
+            logger.info(f"  Turn {i+1} attempt {attempt+1}: speech {duration:.1f}s "
+                        f"({cps:.1f} chars/s, need >= {min_expected:.1f}s)")
+            if speech and duration >= min_expected:
+                pcm = speech
                 break
-            if pcm:
-                logger.warning(f"Turn {i+1} audio too short ({duration:.1f}s for {len(text)} chars) — retrying...")
-                pcm = None
-            if attempt == 0:
+            if speech:
+                logger.warning(f"Turn {i+1} truncated: only {duration:.1f}s speech for "
+                               f"{len(text)} chars — retrying ({attempt+1}/3)...")
+            pcm = None
+            if attempt < 2:
                 await asyncio.sleep(3)
 
         if pcm:
             all_pcm.extend(pcm)
             logger.info(f"  Got {len(pcm)} bytes PCM ({len(pcm)/(SAMPLE_RATE*2):.1f}s)")
         else:
-            logger.warning(f"  No audio for turn {i+1}")
+            logger.error(f"  Turn {i+1} FAILED after retries — dropped text: «{text[:80]}...»")
 
         await asyncio.sleep(1)  # Rate limit
 
