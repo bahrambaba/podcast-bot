@@ -428,6 +428,39 @@ def send_to_telegram(audio_path, title, caption):
         return False
 
 
+def send_transcript_to_telegram(title, transcript):
+    """Send the podcast transcript text to a separate Telegram channel
+    configured via TELEGRAM_TEXT_CHAT_ID. Telegram sendMessage limit is
+    4096 chars, so long transcripts are split on line boundaries."""
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_TEXT_CHAT_ID", "")
+    if not bot_token or not chat_id:
+        logger.warning("TELEGRAM_TEXT_CHAT_ID not set — skipping transcript")
+        return False
+
+    chunks = []
+    current = ""
+    for line in transcript.splitlines():
+        if len(current) + len(line) + 1 > 4000:
+            chunks.append(current)
+            current = line + "\n"
+        else:
+            current += line + "\n"
+    if current.strip():
+        chunks.append(current)
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    ok = True
+    for i, chunk in enumerate(chunks):
+        resp = requests.post(url, data={"chat_id": chat_id, "text": chunk})
+        if resp.status_code != 200:
+            logger.error(f"Transcript send error (part {i+1}/{len(chunks)}): {resp.text}")
+            ok = False
+    if ok:
+        logger.info(f"Transcript sent to Telegram in {len(chunks)} message(s)")
+    return ok
+
+
 # =============================================================================
 # Intro/Outro Audio Generation & Music Mixing
 # =============================================================================
@@ -724,6 +757,15 @@ async def async_main():
             f"📢 @koohnameh"
         )
         send_to_telegram(wav_path, title, caption)
+
+        # Send full transcript (intro + body + outro) to the text channel
+        transcript = (
+            f"🎙 «{title}»\n\n"
+            + intro_text.rstrip() + "\n\n"
+            + script.rstrip() + "\n\n"
+            + outro_text.rstrip()
+        )
+        send_transcript_to_telegram(title, transcript)
         logger.info("Done!")
 
     except Exception as e:
