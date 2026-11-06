@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 JALALI_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
                  "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
 
-MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
+MODEL = "gemini-3.8-live"
 SAMPLE_RATE = 24000
 VOICE_FARID = "Charon"       # Informative male
 VOICE_DILARA = "Aoede"      # Breezy female
