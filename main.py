@@ -19,7 +19,7 @@ import jdatetime
 from google import genai
 from google.genai import types
 from pydub import AudioSegment
-from pydub.silence import split_on_silence
+from pydub.silence import split_on_silence, detect_nonsilent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -240,13 +240,25 @@ def generate_podcast_script(source_text, podcast_date):
 # =============================================================================
 
 def trim_silence_pcm(pcm):
-    """Compress long silences inside a PCM turn to max ~0.4s pause.
-    Never removes voiced audio — only silence runs longer than 1.1s."""
+    """Cut leading/trailing silence and compress long mid-turn pauses.
+    Threshold stays in [-45, -32] dBFS so faint 'room tone' the model emits
+    as fake silence is still detected as silence. Never removes voiced audio."""
     if not pcm:
         return pcm
     seg = AudioSegment(pcm, sample_width=2, frame_rate=SAMPLE_RATE, channels=1)
-    threshold = min(-40.0, seg.dBFS - 35) if seg.rms else -40.0
-    chunks = split_on_silence(seg, min_silence_len=1100, silence_thresh=threshold, keep_silence=400)
+    thresh = -45.0
+    if seg.rms:
+        thresh = max(thresh, min(-32.0, seg.dBFS - 25))
+    # 1) Hard cut to actual voice activity: drop everything before the first
+    #    and after the last non-silent chunk (kills the long silent tail).
+    nonsilent = detect_nonsilent(seg, min_silence_len=800, silence_thresh=thresh, seek_step=10)
+    if not nonsilent:
+        return pcm
+    start = max(0, nonsilent[0][0] - 150)
+    end = min(len(seg), nonsilent[-1][1] + 300)
+    seg = seg[start:end]
+    # 2) Compress internal pauses longer than 1.1s down to ~0.4s.
+    chunks = split_on_silence(seg, min_silence_len=1100, silence_thresh=thresh, keep_silence=400)
     if not chunks:
         return pcm
     return b"".join(c.raw_data for c in chunks)
@@ -355,12 +367,12 @@ async def render_podcast_audio(script, output_path, corrections=None):
             cps = len(text) / duration if duration > 0 else 0.0
             logger.info(f"  Turn {i+1} attempt {attempt+1}: speech {duration:.1f}s "
                         f"({cps:.1f} chars/s, need >= {min_expected:.1f}s)")
-            if speech and duration >= min_expected:
+            if speech and duration >= min_expected and cps >= 8.0:
                 pcm = speech
                 break
             if speech:
-                logger.warning(f"Turn {i+1} truncated: only {duration:.1f}s speech for "
-                               f"{len(text)} chars — retrying ({attempt+1}/3)...")
+                logger.warning(f"Turn {i+1} rejected: {duration:.1f}s speech for {len(text)} chars "
+                               f"({cps:.1f} chars/s) — retrying ({attempt+1}/3)...")
             pcm = None
             if attempt < 2:
                 await asyncio.sleep(3)
